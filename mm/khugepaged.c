@@ -1320,7 +1320,7 @@ static void retract_page_tables(struct address_space *mapping, pgoff_t pgoff)
 				_pmd = pmdp_collapse_flush(vma, addr, pmd);
 				spin_unlock(ptl);
 				vm_write_end(vma);
-				atomic_long_dec(&mm->nr_ptes);
+				mm_dec_nr_ptes(vma->vm_mm);
 				tlb_remove_table_sync_one();
 				pte_free(mm, pmd_pgtable(_pmd));
 				mmu_notifier_invalidate_range_end(mm, addr,
