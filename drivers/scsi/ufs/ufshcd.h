@@ -1116,17 +1116,13 @@ struct ufs_hba {
 	struct pinctrl *pctrl;
 
 	int latency_hist_enabled;
-#ifdef VENDOR_EDIT
 	struct io_latency_state io_lat_read;
 	struct io_latency_state io_lat_write;
 	struct io_latency_state io_lat_other;
-#endif
 	struct reset_control *core_reset;
 
 	struct ufs_desc_size desc_size;
 	bool restore_needed;
-
-	struct io_latency_state io_lat_s;
 
 	/* To monitor slow UFS I/O requests. */
 	u64 slowio_us;

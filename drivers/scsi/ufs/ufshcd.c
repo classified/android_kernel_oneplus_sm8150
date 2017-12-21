@@ -6724,32 +6724,16 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
                     u_int64_t delta_us;
                     unsigned int length = blk_rq_sectors(cmd->request);
 
-                    completion = ktime_get();
-                    delta_us = ktime_us_delta(completion,cmd->request->lat_hist_io_start);
-                    if(req_op(cmd->request) == REQ_OP_WRITE || req_op(cmd->request) == REQ_OP_WRITE_SAME){
-                        blk_update_latency_hist(&hba->io_lat_write, delta_us, length);
-                    }else if(req_op(cmd->request) == REQ_OP_READ){
-                        blk_update_latency_hist(&hba->io_lat_read, delta_us, length);
-                    }else{
-                        blk_update_latency_hist(&hba->io_lat_other, delta_us, length);
-                    }
-                }
-            }
-#if defined(VENDOR_EDIT) && defined(CONFIG_TRACEPOINTS)
-            if (trace_ufshcd_command_enabled())
-            {
-                struct request *req = cmd->request;
-                u_int64_t delta_us = ktime_us_delta(lrbp->complete_time_stamp, lrbp->issue_time_stamp);
-
-                if (req && bio_has_data(req->bio) && (delta_us > 5000))
-                {
-                    trace_printk("ufs_io_latency:%06lld us, io_type:%s, LBA:%08x, size:%d\n",
-                            delta_us, (rq_data_dir(req) == READ) ? "R" : "W",
-                            (unsigned int)req->bio->bi_iter.bi_sector,
-                            cmd->sdb.length);
-                }
-            }
-#endif
+					completion = ktime_get();
+					delta_us = ktime_us_delta(completion,
+						  req->lat_hist_io_start);
+					/* rq_data_dir() => true if WRITE */
+					blk_update_latency_hist(
+						(rq_data_dir(req) == READ) ?
+						&hba->io_lat_read :
+						&hba->io_lat_write, delta_us);
+				}
+			}
 
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
@@ -11140,9 +11124,10 @@ latency_hist_store(struct device *dev, struct device_attribute *attr,
 
 	if (kstrtol(buf, 0, &value))
 		return -EINVAL;
-	if (value == BLK_IO_LAT_HIST_ZERO)
-		blk_zero_latency_hist(&hba->io_lat_s);
-	else if (value == BLK_IO_LAT_HIST_ENABLE ||
+	if (value == BLK_IO_LAT_HIST_ZERO) {
+		memset(&hba->io_lat_read, 0, sizeof(hba->io_lat_read));
+		memset(&hba->io_lat_write, 0, sizeof(hba->io_lat_write));
+	} else if (value == BLK_IO_LAT_HIST_ENABLE ||
 		 value == BLK_IO_LAT_HIST_DISABLE)
 		hba->latency_hist_enabled = value;
 	return count;
@@ -11153,8 +11138,14 @@ latency_hist_show(struct device *dev, struct device_attribute *attr,
 		  char *buf)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+	size_t written_bytes;
 
-	return blk_latency_hist_show(&hba->io_lat_s, buf);
+	written_bytes = blk_latency_hist_show("Read", &hba->io_lat_read,
+			buf, PAGE_SIZE);
+	written_bytes += blk_latency_hist_show("Write", &hba->io_lat_write,
+			buf + written_bytes, PAGE_SIZE - written_bytes);
+
+	return written_bytes;
 }
 
 /**
