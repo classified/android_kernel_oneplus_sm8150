@@ -189,8 +189,7 @@ AES_ENTRY(aes_ctr_encrypt)
 .LctrloopNx:
 	subs		w4, w4, #4
 	bmi		.Lctr1x
-	ldr		q8, =0x30000000200000001	/* addends 1,2,3[,0] */
-	dup		v7.4s, w6
+	add		w7, w6, #1
 	mov		v0.16b, v4.16b
 	add		w8, w6, #2
 	mov		v1.16b, v4.16b
