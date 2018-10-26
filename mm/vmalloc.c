@@ -1703,6 +1703,8 @@ void vfree(const void *addr)
 
 	kmemleak_free(addr);
 
+	might_sleep_if(!in_interrupt());
+
 	if (!addr)
 		return;
 	if (unlikely(in_interrupt()))
