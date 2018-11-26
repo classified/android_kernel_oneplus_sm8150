@@ -11,3 +11,4 @@ CFLAGS_wakeup.o += -DCONFIG_DEBUG_FS
 endif
 
 ccflags-$(CONFIG_DEBUG_DRIVER) := -DDEBUG
+CFLAGS_wakeup.o += -DCONFIG_DEBUG_FS
