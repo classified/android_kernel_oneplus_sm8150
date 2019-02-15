@@ -7461,7 +7461,8 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 		return false;
 #endif
 
-	if (task_boost_policy(p) == SCHED_BOOST_ON_BIG &&
+	if ((task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
+			schedtune_task_boost(p) > 0) &&
 			is_min_capacity_cpu(cpu))
 		return false;
 
