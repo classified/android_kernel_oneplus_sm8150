@@ -42,7 +42,6 @@ extern unsigned int sysctl_sched_many_wakeup_threshold;
 extern unsigned int sysctl_sched_walt_rotate_big_tasks;
 extern unsigned int sysctl_sched_min_task_util_for_boost;
 extern unsigned int sysctl_sched_min_task_util_for_colocation;
-extern unsigned int sysctl_sched_little_cluster_coloc_fmin_khz;
 extern unsigned int sysctl_sched_asym_cap_sibling_freq_match_pct;
 
 extern int
@@ -131,12 +130,6 @@ extern int sysctl_sched_assist_scene_handler(struct ctl_table *table, int write,
 extern int sysctl_sched_assist_input_boost_ctrl_handler(struct ctl_table *table, int write,
 	void __user *buffer, size_t *lenp, loff_t *ppos);
 #endif /* OPLUS_FEATURE_SCHED_ASSIST */
-
-#ifdef CONFIG_SCHED_WALT
-extern int sched_little_cluster_coloc_fmin_khz_handler(struct ctl_table *table,
-					int write, void __user *buffer,
-					size_t *lenp, loff_t *ppos);
-#endif
 
 #define LIB_PATH_LENGTH 512
 extern char sched_lib_name[LIB_PATH_LENGTH];
