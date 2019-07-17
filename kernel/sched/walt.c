@@ -509,6 +509,8 @@ static inline u64 freq_policy_load(struct rq *rq)
 	u64 timeline = 0;
 	int cpu = cpu_of(rq);
 #endif /* OPLUS_FEATURE_SCHED_ASSIST */
+	struct task_struct *cpu_ksoftirqd = per_cpu(ksoftirqd, cpu_of(rq));
+
 	if (rq->ed_task != NULL) {
 		load = sched_ravg_window;
 		goto done;
@@ -518,6 +520,9 @@ static inline u64 freq_policy_load(struct rq *rq)
 		load = rq->prev_runnable_sum + aggr_grp_load;
 	else
 		load = rq->prev_runnable_sum + rq->grp_time.prev_runnable_sum;
+
+	if (cpu_ksoftirqd && cpu_ksoftirqd->state == TASK_RUNNING)
+		load = max_t(u64, load, task_load(cpu_ksoftirqd));
 
 	tt_load = top_task_load(rq);
 	switch (reporting_policy) {
