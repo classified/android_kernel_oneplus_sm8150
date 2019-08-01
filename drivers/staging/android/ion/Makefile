@@ -9,3 +9,4 @@ obj-y	+= oplus_ion/
 #endif /* OPLUS_FEATURE_HEALTHINFO */
 
 obj-$(CONFIG_OPLUS_ION_BOOSTPOOL) += oplus_ion_boost_pool.o
+CFLAGS_ion_system_heap.o += -Wframe-larger-than=8192
