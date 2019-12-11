@@ -1792,6 +1792,7 @@ static ssize_t cpuset_write_resmask_wrapper(struct kernfs_open_file *of,
 		{ "audio-app",		CONFIG_CPUSET_AUDIO_APP },
 		{ "background",		CONFIG_CPUSET_BG },
 		{ "camera-daemon",	CONFIG_CPUSET_CAMERA },
+		{ "display",		CONFIG_CPUSET_DISPLAY },
 		{ "foreground",		CONFIG_CPUSET_FG },
 		{ "restricted",		CONFIG_CPUSET_RESTRICTED },
 		{ "system-background",	CONFIG_CPUSET_SYSTEM_BG },
@@ -1800,7 +1801,7 @@ static ssize_t cpuset_write_resmask_wrapper(struct kernfs_open_file *of,
 	struct cpuset *cs = css_cs(of_css(of));
 	int i;
 
-	if (task_is_booster(current)) {
+	if (task_is_zygote(current)) {
 		for (i = 0; i < ARRAY_SIZE(cs_targets); i++) {
 			struct cs_target tgt = cs_targets[i];
 
