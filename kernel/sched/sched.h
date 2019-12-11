@@ -3176,6 +3176,11 @@ static inline int is_reserved(int cpu)
 	return 0;
 }
 
+static inline int mark_reserved(int cpu)
+{
+	return 0;
+}
+
 extern void sched_boost_parse_dt(void);
 
 static inline void clear_ed_task(struct task_struct *p, struct rq *rq) { }
