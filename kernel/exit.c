@@ -555,8 +555,12 @@ static void exit_mm(void)
 	trigger_svm_oom_event(mm, 0, 0);
 #endif
 	mm_released = mmput(mm);
+#ifdef CONFIG_ANDROID_SIMPLE_LMK
+	clear_thread_flag(TIF_MEMDIE);
+#else
 	if (test_thread_flag(TIF_MEMDIE))
 		exit_oom_victim();
+#endif
 	if (mm_released)
 		set_tsk_thread_flag(current, TIF_MM_RELEASED);
 }
