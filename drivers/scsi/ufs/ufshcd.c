@@ -4061,8 +4061,6 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 send_orig_cmd:
 #endif
 #endif
-	/* Vote PM QoS for the request */
-	ufshcd_vops_pm_qos_req_start(hba, cmd->request);
 #ifdef VENDOR_EDIT
 	/* IO svc time latency histogram */
 	if (hba->latency_hist_enabled &&(!blk_rq_is_passthrough(cmd->request))) {
@@ -4072,19 +4070,6 @@ send_orig_cmd:
 			 cmd->request->lat_hist_enabled = 0;
 	}
 #endif
-
-	/* IO svc time latency histogram */
-	if (hba != NULL && cmd->request != NULL) {
-		if (hba->latency_hist_enabled) {
-			switch (req_op(cmd->request)) {
-			case REQ_OP_READ:
-			case REQ_OP_WRITE:
-				cmd->request->lat_hist_io_start = ktime_get();
-				cmd->request->lat_hist_enabled = 1;
-			}
-		} else
-			cmd->request->lat_hist_enabled = 0;
-	}
 
 	WARN_ON(hba->clk_gating.state != CLKS_ON);
 
@@ -4117,7 +4102,6 @@ send_orig_cmd:
 		lrbp->cmd = NULL;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		ufshcd_release_all(hba);
-		ufshcd_vops_pm_qos_req_end(hba, cmd->request, true);
 		goto out;
 	}
 
@@ -4127,7 +4111,6 @@ send_orig_cmd:
 		lrbp->cmd = NULL;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		ufshcd_release_all(hba);
-		ufshcd_vops_pm_qos_req_end(hba, cmd->request, true);
 		goto out;
 	}
 
@@ -4172,7 +4155,6 @@ if ((hba->dev_info.quirks & UFS_DEVICE_QUIRK_D1_FFU_RESET) || (hba->dev_info.qui
 		lrbp->cmd = NULL;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		ufshcd_release_all(hba);
-		ufshcd_vops_pm_qos_req_end(hba, cmd->request, true);
 		dev_err(hba->dev, "%s: failed sending command, %d\n",
 							__func__, err);
 		err = DID_ERROR;
@@ -6826,8 +6808,6 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 				 * this must be called before calling
 				 * ->scsi_done() callback.
 				 */
-				ufshcd_vops_pm_qos_req_end(hba, cmd->request,
-					false);
 			}
 
 			req = cmd->request;
@@ -6936,8 +6916,6 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 				 * this must be called before calling
 				 * ->scsi_done() callback.
 				 */
-				ufshcd_vops_pm_qos_req_end(hba, cmd->request,
-					true);
 			}
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
