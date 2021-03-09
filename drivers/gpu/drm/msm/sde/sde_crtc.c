@@ -3421,7 +3421,7 @@ int oneplus_get_panel_brightness_to_alpha(void)
 		return 0;
 	if (oneplus_panel_alpha)
 		return oneplus_panel_alpha;
-    if (oneplus_dimlayer_hbm_enable)
+	if (oneplus_dimlayer_hbm_enable)
 		return brightness_to_alpha(display->panel->hbm_backlight);
     else
 	return bl_to_alpha_dc(display->panel->hbm_backlight);
@@ -3573,8 +3573,6 @@ int oneplus_aod_dc = 0;
 		return count;
 	oneplus_dim_status = dim_status;
 	oneplus_dimlayer_hbm_enable = oneplus_dim_status != 0;
-	backup_dimlayer_hbm = oneplus_dimlayer_hbm_enable;
-	backup_dim_status = oneplus_dim_status;
 	pr_err("notify dim %d,aod = %d press= %d aod_hide =%d\n",
 		oneplus_dim_status, dsi_display->panel->aod_status, oneplus_onscreenfp_status, aod_layer_hide);
 	if (oneplus_dim_status == 1 && HBM_flag) {
@@ -5905,7 +5903,7 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
 			zpos++;
 		}
 
-		if (fp_index >= 0)
+		if (oneplus_dimlayer_hbm_enable)
 			cstate->fingerprint_mode = true;
 		else
 			cstate->fingerprint_mode = false;
@@ -5931,11 +5929,10 @@ static int sde_crtc_onscreenfinger_atomic_check(struct sde_crtc_state *cstate,
 				SDE_DEBUG("pstates PLANE_PROP_ALPHA value is 0\n");
 			}
 		}
-    }
+	}
 	if (fp_mode == 1 && !oneplus_dimlayer_hbm_enable) {
-		cstate->fingerprint_dim_layer = NULL;
 		cstate->fingerprint_mode = true;
-		//cstate->fingerprint_pressed = true;
+		cstate->fingerprint_pressed = true;
 		return 0;
 	}
 
