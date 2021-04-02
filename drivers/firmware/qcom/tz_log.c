@@ -948,7 +948,7 @@ static void tzdbg_register_qsee_log_buf(struct platform_device *pdev)
 
 	if (resp.result != QSEOS_RESULT_SUCCESS) {
 		pr_err(
-		"%s: scm_call to register log buf failed, resp result =%llu\n",
+		"%s: scm_call to register log buf failed, resp result =%u\n",
 		__func__, resp.result);
 		goto err;
 	}
