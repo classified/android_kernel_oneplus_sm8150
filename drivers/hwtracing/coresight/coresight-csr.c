@@ -353,7 +353,7 @@ static ssize_t flushperiod_show(struct device *dev,
 		return -EINVAL;
 	}
 
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", drvdata->flushperiod);
+	return scnprintf(buf, PAGE_SIZE, "%#x\n", drvdata->flushperiod);
 }
 
 static ssize_t flushperiod_store(struct device *dev,

@@ -840,10 +840,11 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		mutex_init(&drvdata->idr_mutex);
 
 		if (of_property_read_bool(drvdata->dev->of_node,
-			"qcom,qdss-ipa-support"))
+			"qcom,qdss-ipa-support")) {
 			ret = tmc_etr_ipa_init(adev, drvdata);
-			if (ret)
-				goto out_iommu_deinit;
+		}
+		if (ret)
+			goto out_iommu_deinit;
 		break;
 	case TMC_CONFIG_TYPE_ETF:
 		desc.type = CORESIGHT_DEV_TYPE_LINKSINK;
