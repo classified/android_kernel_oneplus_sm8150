@@ -12,42 +12,13 @@
 #define CC_CTL_NODE "cc_ctl"
 #define CC_TAG "control center: "
 
-#ifdef CONFIG_CONTROL_CENTER
-#define cc_logv(fmt...) \
-	do { \
-		if (cc_log_lv < 1) \
-			pr_info(CC_TAG fmt); \
-	} while (0)
-
-#define cc_logi(fmt...) \
-	do { \
-		if (cc_log_lv < 2) \
-			pr_info(CC_TAG fmt); \
-	} while (0)
-
-#define cc_logw(fmt...) \
-	do { \
-		if (cc_log_lv < 3) \
-			pr_warn(CC_TAG fmt); \
-	} while (0)
-
-/* special for ratelimited version */
-#define cc_logw_ratelimited(fmt...) \
-	do { \
-		if (cc_log_lv < 3) \
-			pr_warn_ratelimited(CC_TAG fmt); \
-	} while (0)
-
-#define cc_loge(fmt...) pr_err(CC_TAG fmt)
-#define cc_logd(fmt...) pr_debug(CC_TAG fmt)
-#else
 #define cc_logv(fmt...)
 #define cc_logi(fmt...)
 #define cc_logw(fmt...)
 #define cc_logw_ratelimited(fmt...)
 #define cc_loge(fmt...)
 #define cc_logd(fmt...)
-#endif
+
 
 enum CC_CTL_GROUP {
 	CC_CTL_GROUP_DEFAULT,

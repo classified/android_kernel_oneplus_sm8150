@@ -105,10 +105,6 @@ static const char *const mem_cgroup_lru_names[] = {
 	"active_anon",
 	"inactive_file",
 	"active_file",
-#ifdef CONFIG_MEMPLUS
-	"inactive_anon_swpcache",
-	"active_anon_swpcache",
-#endif
 	"unevictable",
 };
 
@@ -4144,15 +4140,6 @@ static struct cftype mem_cgroup_legacy_files[] = {
 		.write = mem_cgroup_reset,
 		.read_u64 = mem_cgroup_read_u64,
 	},
-#ifdef CONFIG_SLABINFO
-	{
-		.name = "kmem.slabinfo",
-		.seq_start = memcg_slab_start,
-		.seq_next = memcg_slab_next,
-		.seq_stop = memcg_slab_stop,
-		.seq_show = memcg_slab_show,
-	},
-#endif
 	{
 		.name = "kmem.tcp.limit_in_bytes",
 		.private = MEMFILE_PRIVATE(_TCP, RES_LIMIT),
