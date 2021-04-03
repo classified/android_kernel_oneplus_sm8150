@@ -324,8 +324,7 @@ static void freeze_cgroup(struct freezer *freezer)
 	struct task_struct *task;
 
 	css_task_iter_start(&freezer->css, 0, &it);
-	while ((task = css_task_iter_next(&it)))
-		freeze_cgroup_task(task);
+
 	css_task_iter_end(&it);
 }
 

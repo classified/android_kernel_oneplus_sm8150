@@ -9,10 +9,6 @@
 #include <linux/thermal.h>
 #include <linux/power_supply.h>
 
-#ifdef CONFIG_CONTROL_CENTER
-#include <linux/oem/control_center.h>
-#endif
-
 #define HT_CLUSTERS 3
 #define HT_CPUS_PER_CLUS 4
 #define CLUS_0_IDX 0
@@ -196,9 +192,6 @@ struct ai_parcel {
 	u64 notify_end_ts_us;
 	u64 utils[8];
 	u32 skin_temp;
-#ifdef CONFIG_CONTROL_CENTER
-	struct cc_boost_ts cbt[CC_BOOST_TS_SIZE];
-#endif
 	struct ai_thread_parcel t[AI_THREAD_PARCEL_MAX];
 };
 
