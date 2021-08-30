@@ -154,4 +154,3 @@ z_erofs_pagevec_dequeue(struct z_erofs_pagevec_ctor *ctor,
 	return tagptr_unfold_ptr(t);
 }
 #endif
-
