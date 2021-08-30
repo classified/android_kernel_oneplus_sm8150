@@ -107,4 +107,3 @@ tagptr_init(o, cmpxchg(&ptptr->v, o.v, n.v)); })
 *ptptr; })
 
 #endif	/* __EROFS_FS_TAGPTR_H */
-
