@@ -153,4 +153,3 @@ const struct file_operations erofs_dir_fops = {
 	.read		= generic_read_dir,
 	.iterate_shared	= erofs_readdir,
 };
-

@@ -9,6 +9,7 @@
 #include <linux/statfs.h>
 #include <linux/parser.h>
 #include <linux/seq_file.h>
+#include <linux/crc32c.h>
 #include "xattr.h"
 
 #define CREATE_TRACE_POINTS
@@ -46,6 +47,30 @@ void _erofs_info(struct super_block *sb, const char *function,
 	va_end(args);
 }
 
+static int erofs_superblock_csum_verify(struct super_block *sb, void *sbdata)
+{
+	struct erofs_super_block *dsb;
+	u32 expected_crc, crc;
+
+	dsb = kmemdup(sbdata + EROFS_SUPER_OFFSET,
+		      EROFS_BLKSIZ - EROFS_SUPER_OFFSET, GFP_KERNEL);
+	if (!dsb)
+		return -ENOMEM;
+
+	expected_crc = le32_to_cpu(dsb->checksum);
+	dsb->checksum = 0;
+	/* to allow for x86 boot sectors and other oddities. */
+	crc = crc32c(~0, dsb, EROFS_BLKSIZ - EROFS_SUPER_OFFSET);
+	kfree(dsb);
+
+	if (crc != expected_crc) {
+		erofs_err(sb, "invalid checksum 0x%08x, 0x%08x expected",
+			  crc, expected_crc);
+		return -EBADMSG;
+	}
+	return 0;
+}
+
 static void erofs_inode_init_once(void *ptr)
 {
 	struct erofs_inode *vi = ptr;
@@ -79,7 +104,7 @@ static void i_callback(struct rcu_head *head)
 	kmem_cache_free(erofs_inode_cachep, vi);
 }
 
-static void destroy_inode(struct inode *inode)
+static void erofs_destroy_inode(struct inode *inode)
 {
 	call_rcu(&inode->i_rcu, i_callback);
 }
@@ -118,7 +143,7 @@ static int erofs_read_superblock(struct super_block *sb)
 
 	sbi = EROFS_SB(sb);
 
-	data = kmap_atomic(page);
+	data = kmap(page);
 	dsb = (struct erofs_super_block *)(data + EROFS_SUPER_OFFSET);
 
 	ret = -EINVAL;
@@ -127,11 +152,19 @@ static int erofs_read_superblock(struct super_block *sb)
 		goto out;
 	}
 
+	sbi->feature_compat = le32_to_cpu(dsb->feature_compat);
+	if (sbi->feature_compat & EROFS_FEATURE_COMPAT_SB_CHKSUM) {
+		ret = erofs_superblock_csum_verify(sb, data);
+		if (ret)
+			goto out;
+	}
+
+	ret = -EINVAL;
 	blkszbits = dsb->blkszbits;
 	/* 9(512 bytes) + LOG_SECTORS_PER_BLOCK == LOG_BLOCK_SIZE */
 	if (blkszbits != LOG_BLOCK_SIZE) {
-		erofs_err(sb, "blksize %u isn't supported on this platform",
-			  1 << blkszbits);
+		erofs_err(sb, "blkszbits %u isn't supported on this platform",
+			  blkszbits);
 		goto out;
 	}
 
@@ -161,7 +194,7 @@ static int erofs_read_superblock(struct super_block *sb)
 	}
 	ret = 0;
 out:
-	kunmap_atomic(data);
+	kunmap(page);
 	put_page(page);
 	return ret;
 }
@@ -213,9 +246,6 @@ static void erofs_default_options(struct erofs_sb_info *sbi)
 #endif
 #ifdef CONFIG_EROFS_FS_POSIX_ACL
 	set_opt(sbi, POSIX_ACL);
-#endif
-#ifdef CONFIG_OPLUS_FEATURE_EROFS
-	set_opt(sbi, LZ4ASM);
 #endif
 }
 
@@ -402,8 +432,7 @@ static int erofs_fill_super(struct super_block *sb, void *data, int silent)
 		sb->s_flags &= ~SB_POSIXACL;
 
 #ifdef CONFIG_EROFS_FS_ZIP
-	INIT_RADIX_TREE(&sbi->workstn.tree, GFP_ATOMIC);
-	spin_lock_init(&sbi->workstn.lock);
+	INIT_RADIX_TREE(&sbi->workstn_tree, GFP_ATOMIC);
 #endif
 
 	/* get the root inode */
@@ -576,9 +605,6 @@ static int erofs_show_options(struct seq_file *seq, struct dentry *root)
 		seq_puts(seq, ",cache_strategy=readahead");
 	} else if (sbi->cache_strategy == EROFS_ZIP_CACHE_READAROUND) {
 		seq_puts(seq, ",cache_strategy=readaround");
-	} else {
-		seq_puts(seq, ",cache_strategy=(unknown)");
-		DBG_BUGON(1);
 	}
 #endif
 	return 0;
@@ -610,7 +636,7 @@ out:
 const struct super_operations erofs_sops = {
 	.put_super = erofs_put_super,
 	.alloc_inode = erofs_alloc_inode,
-	.destroy_inode = destroy_inode,
+	.destroy_inode = erofs_destroy_inode,
 	.statfs = erofs_statfs,
 	.show_options = erofs_show_options,
 	.remount_fs = erofs_remount,
@@ -622,4 +648,3 @@ module_exit(erofs_module_exit);
 MODULE_DESCRIPTION("Enhanced ROM File System");
 MODULE_AUTHOR("Gao Xiang, Chao Yu, Miao Xie, CONSUMER BG, HUAWEI Inc.");
 MODULE_LICENSE("GPL");
-
