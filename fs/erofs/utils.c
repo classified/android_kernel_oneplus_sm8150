@@ -9,7 +9,7 @@
 #include <linux/mm_inline.h>
 #include <linux/xarray.h>
 
-struct page *erofs_allocpage(struct list_head *pool, gfp_t gfp, bool nofail)
+struct page *erofs_allocpage(struct list_head *pool, gfp_t gfp)
 {
 	struct page *page;
 
@@ -18,7 +18,7 @@ struct page *erofs_allocpage(struct list_head *pool, gfp_t gfp, bool nofail)
 		DBG_BUGON(page_ref_count(page) != 1);
 		list_del(&page->lru);
 	} else {
-		page = alloc_pages(gfp | (nofail ? __GFP_NOFAIL : 0), 0);
+		page = alloc_page(gfp);
 	}
 	return page;
 }
@@ -68,7 +68,7 @@ struct erofs_workgroup *erofs_find_workgroup(struct super_block *sb,
 
 repeat:
 	rcu_read_lock();
-	grp = radix_tree_lookup(&sbi->workstn.tree, index);
+	grp = radix_tree_lookup(&sbi->workstn_tree, index);
 	if (grp) {
 		if (erofs_workgroup_get(grp)) {
 			/* prefer to relax rcu read side */
@@ -99,16 +99,16 @@ int erofs_register_workgroup(struct super_block *sb,
 		return err;
 
 	sbi = EROFS_SB(sb);
-	erofs_workstn_lock(sbi);
+	xa_lock(&sbi->workstn_tree);
 
 	/*
 	 * Bump up reference count before making this workgroup
 	 * visible to other users in order to avoid potential UAF
-	 * without serialized by erofs_workstn_lock.
+	 * without serialized by workstn_lock.
 	 */
 	__erofs_workgroup_get(grp);
 
-	err = radix_tree_insert(&sbi->workstn.tree, grp->index, grp);
+	err = radix_tree_insert(&sbi->workstn_tree, grp->index, grp);
 	if (err)
 		/*
 		 * it's safe to decrease since the workgroup isn't visible
@@ -116,7 +116,7 @@ int erofs_register_workgroup(struct super_block *sb,
 		 */
 		__erofs_workgroup_put(grp);
 
-	erofs_workstn_unlock(sbi);
+	xa_unlock(&sbi->workstn_tree);
 	radix_tree_preload_end();
 	return err;
 }
@@ -138,15 +138,8 @@ int erofs_workgroup_put(struct erofs_workgroup *grp)
 	return count;
 }
 
-static void erofs_workgroup_unfreeze_final(struct erofs_workgroup *grp)
-{
-	erofs_workgroup_unfreeze(grp, 0);
-	__erofs_workgroup_free(grp);
-}
-
 static bool erofs_try_to_release_workgroup(struct erofs_sb_info *sbi,
-					   struct erofs_workgroup *grp,
-					   bool cleanup)
+					   struct erofs_workgroup *grp)
 {
 	/*
 	 * If managed cache is on, refcount of workgroups
@@ -172,19 +165,16 @@ static bool erofs_try_to_release_workgroup(struct erofs_sb_info *sbi,
 	 * however in order to avoid some race conditions, add a
 	 * DBG_BUGON to observe this in advance.
 	 */
-	DBG_BUGON(radix_tree_delete(&sbi->workstn.tree, grp->index) != grp);
+	DBG_BUGON(radix_tree_delete(&sbi->workstn_tree, grp->index) != grp);
 
-	/*
-	 * If managed cache is on, last refcount should indicate
-	 * the related workstation.
-	 */
-	erofs_workgroup_unfreeze_final(grp);
+	/* last refcount should be connected with its managed pslot.  */
+	erofs_workgroup_unfreeze(grp, 0);
+	__erofs_workgroup_free(grp);
 	return true;
 }
 
 static unsigned long erofs_shrink_workstation(struct erofs_sb_info *sbi,
-					      unsigned long nr_shrink,
-					      bool cleanup)
+					      unsigned long nr_shrink)
 {
 	pgoff_t first_index = 0;
 	void *batch[PAGEVEC_SIZE];
@@ -192,9 +182,9 @@ static unsigned long erofs_shrink_workstation(struct erofs_sb_info *sbi,
 
 	int i, found;
 repeat:
-	erofs_workstn_lock(sbi);
+	xa_lock(&sbi->workstn_tree);
 
-	found = radix_tree_gang_lookup(&sbi->workstn.tree,
+	found = radix_tree_gang_lookup(&sbi->workstn_tree,
 				       batch, first_index, PAGEVEC_SIZE);
 
 	for (i = 0; i < found; ++i) {
@@ -203,14 +193,14 @@ repeat:
 		first_index = grp->index + 1;
 
 		/* try to shrink each valid workgroup */
-		if (!erofs_try_to_release_workgroup(sbi, grp, cleanup))
+		if (!erofs_try_to_release_workgroup(sbi, grp))
 			continue;
 
 		++freed;
 		if (!--nr_shrink)
 			break;
 	}
-	erofs_workstn_unlock(sbi);
+	xa_unlock(&sbi->workstn_tree);
 
 	if (i && nr_shrink)
 		goto repeat;
@@ -240,7 +230,8 @@ void erofs_shrinker_unregister(struct super_block *sb)
 	struct erofs_sb_info *const sbi = EROFS_SB(sb);
 
 	mutex_lock(&sbi->umount_mutex);
-	erofs_shrink_workstation(sbi, ~0UL, true);
+	/* clean up all remaining workgroups in memory */
+	erofs_shrink_workstation(sbi, ~0UL);
 
 	spin_lock(&erofs_sb_list_lock);
 	list_del(&sbi->list);
@@ -289,7 +280,7 @@ static unsigned long erofs_shrink_scan(struct shrinker *shrink,
 		spin_unlock(&erofs_sb_list_lock);
 		sbi->shrinker_run_no = run_no;
 
-		freed += erofs_shrink_workstation(sbi, nr - freed, false);
+		freed += erofs_shrink_workstation(sbi, nr - freed);
 
 		spin_lock(&erofs_sb_list_lock);
 		/* Get the next list element before we move this one */
@@ -325,4 +316,3 @@ void erofs_exit_shrinker(void)
 	unregister_shrinker(&erofs_shrinker_info);
 }
 #endif	/* !CONFIG_EROFS_FS_ZIP */
-
