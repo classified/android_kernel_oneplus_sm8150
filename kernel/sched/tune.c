@@ -481,9 +481,32 @@ int schedtune_cpu_boost(int cpu)
 extern bool test_task_ux(struct task_struct *task);
 #endif /* OPLUS_FEATURE_UIFIRST */
 
+static inline int schedtune_filter_boost(struct task_struct *p)
+{
+	struct schedtune *st = task_schedtune(p);
+	char name_buf[NAME_MAX + 1];
+
+	cgroup_name(st->css.cgroup, name_buf, sizeof(name_buf));
+	if (unlikely(!strncmp(name_buf, "top-app", strlen("top-app")))) {
+		int adj = p->signal->oom_score_adj;
+		pr_debug("top app is %s with adj %i\n", p->comm, adj);
+
+		/* We only care about adj == 0 */
+		if (adj != 0)
+			return 0;
+
+		/* Don't touch kthreads */
+		if (p->flags & PF_KTHREAD)
+			return 0;
+
+		return st->boost;
+	}
+
+	return st->boost;
+}
+
 int schedtune_task_boost(struct task_struct *p)
 {
-	struct schedtune *st;
 	int task_boost;
 
 	if (unlikely(!schedtune_initialized))
@@ -491,8 +514,7 @@ int schedtune_task_boost(struct task_struct *p)
 
 	/* Get task boost value */
 	rcu_read_lock();
-	st = task_schedtune(p);
-	task_boost = st->boost;
+	task_boost = schedtune_filter_boost(p);
 #ifdef OPLUS_FEATURE_UIFIRST
 	if (sysctl_uifirst_enabled && sysctl_launcher_boost_enabled && p->static_ux == 2) {
 		task_boost = 60;
@@ -508,15 +530,13 @@ int schedtune_task_boost(struct task_struct *p)
  */
 int schedtune_task_boost_rcu_locked(struct task_struct *p)
 {
-	struct schedtune *st;
 	int task_boost;
 
 	if (unlikely(!schedtune_initialized))
 		return 0;
 
 	/* Get task boost value */
-	st = task_schedtune(p);
-	task_boost = st->boost;
+        task_boost = schedtune_filter_boost(p);
 
 	return task_boost;
 }
