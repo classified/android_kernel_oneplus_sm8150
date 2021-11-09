@@ -5070,6 +5070,11 @@ int dsi_panel_post_switch(struct dsi_panel *panel)
 bool aod_fod_flag;
 bool aod_complete;
 bool real_aod_mode;
+
+extern bool oneplus_dimlayer_hbm_enable;
+bool backup_dimlayer_hbm = false;
+extern int oneplus_dim_status;
+int backup_dim_status = 0;
 int dsi_panel_enable(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -5103,20 +5108,26 @@ int dsi_panel_enable(struct dsi_panel *panel)
 	}
 	panel->need_power_on_backlight = true;
 
-	if ((strcmp(panel->name, "samsung dsc cmd mode oneplus dsi panel") == 0) &&
-	    (gamma_read_flag == GAMMA_READ_SUCCESS)) {
+	if (gamma_read_flag == GAMMA_READ_SUCCESS) {
 		if (mode_fps == 60) {
 			rc = dsi_panel_tx_gamma_cmd_set(
 				panel, DSI_GAMMA_CMD_SET_SWITCH_60HZ);
 			pr_err("Send DSI_GAMMA_CMD_SET_SWITCH_60HZ cmds\n");
 			if (rc)
 				pr_err("[%s] Failed to send DSI_GAMMA_CMD_SET_SWITCH_60HZ cmds, rc=%d\n",
-				       panel->name, rc);
+					panel->name, rc);
+		} else if (mode_fps == 90) {
+			rc = dsi_panel_tx_gamma_cmd_set(panel, DSI_GAMMA_CMD_SET_SWITCH_90HZ);
+			pr_err("Send DSI_GAMMA_CMD_SET_SWITCH_90HZ cmds\n");
+			if (rc)
+				pr_err("[%s] Failed to send DSI_GAMMA_CMD_SET_SWITCH_90HZ cmds, rc=%d\n",
+					panel->name, rc);
 		}
 	}
 
 	panel->panel_initialized = true;
 	pr_err("dsi_panel_enable aod_mode =%d\n", panel->aod_mode);
+
 
 	blank = MSM_DRM_BLANK_UNBLANK_CHARGE;
 	notifier_data.data = &blank;
@@ -5190,13 +5201,16 @@ int dsi_panel_disable(struct dsi_panel *panel)
 
 	/* Avoid sending panel off commands when ESD recovery is underway */
 	if (!atomic_read(&panel->esd_recovery_pending)) {
+		oneplus_dimlayer_hbm_enable = false;
+		oneplus_dim_status = 0;
+		pr_err("Kill dim when panel goes off");
 		HBM_flag = false;
-		if (panel->aod_mode == 2) {
-			panel->aod_status = 1;
-		}
-		if (panel->aod_mode == 0) {
+
+		if (panel->aod_mode == 2)
+				panel->aod_status = 1;
+
+		if (panel->aod_mode == 0)
 			panel->aod_status = 0;
-		}
 
 		/*
 		 * Need to set IBB/AB regulator mode to STANDBY,
