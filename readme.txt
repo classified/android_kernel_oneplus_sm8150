@@ -1,5 +1,5 @@
 ***********************************************************************************************************************************
-Synchronize codes for OnePlus 7 Oxygen OS 11.0.0.2.GM57AA and OnePlus 7Pro Oxygen OS 11.0.0.2.GM21AA and OnePlus 7T Oxygen OS 11.0.0.2.HD65BA and OnePlus 7TPro Oxygen OS 11.0.0.2.HD01AA
+Synchronize codes for OnePlus 7 Oxygen OS 11.0.6.1.GM57BA and OnePlus 7Pro Oxygen OS 11.0.6.1.GM21BA and OnePlus 7T Oxygen OS 11.0.6.1.HD65BA and OnePlus 7TPro Oxygen OS 11.0.6.1.HD01BA
 ================================
 -- Kernel has no update --
 ***********************************************************************************************************************************
