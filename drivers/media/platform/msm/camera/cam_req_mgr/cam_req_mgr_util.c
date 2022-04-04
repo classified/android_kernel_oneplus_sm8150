@@ -45,7 +45,7 @@ int cam_req_mgr_util_init(void)
 		goto hdl_tbl_alloc_failed;
 	}
 
-	bitmap_size = BITS_TO_LONGS(CAM_REQ_MGR_MAX_HANDLES_V2) * sizeof(long);
+	bitmap_size = BITS_TO_LONGS(CAM_REQ_MGR_MAX_HANDLES) * sizeof(long);
 	hdl_tbl_local->bitmap = kzalloc(bitmap_size, GFP_KERNEL);
 	if (!hdl_tbl_local->bitmap) {
 		rc = -ENOMEM;
@@ -96,14 +96,11 @@ static void cam_dump_tbl_info(void)
 {
 	int i;
 
-	for (i = 0; i < CAM_REQ_MGR_MAX_HANDLES_V2; i++)
-		CAM_INFO_RATE_LIMIT_CUSTOM(CAM_CRM,
-			CAM_RATE_LIMIT_INTERVAL_5SEC,
-			CAM_REQ_MGR_MAX_HANDLES_V2,
-			"ses_hdl=%x hdl_value=%x type=%d state=%d dev_id=%lld",
+	for (i = 0; i < CAM_REQ_MGR_MAX_HANDLES; i++)
+		CAM_ERR(CAM_CRM,
+			"ses_hdl=%x hdl_value=%x type=%d state=%d",
 			hdl_tbl->hdl[i].session_hdl, hdl_tbl->hdl[i].hdl_value,
-			hdl_tbl->hdl[i].type, hdl_tbl->hdl[i].state,
-			hdl_tbl->hdl[i].dev_id);
+			hdl_tbl->hdl[i].type, hdl_tbl->hdl[i].state);
 }
 
 int cam_req_mgr_util_free_hdls(void)
@@ -218,7 +215,6 @@ int32_t cam_create_device_hdl(struct cam_create_dev_hdl *hdl_data)
 	hdl_tbl->hdl[idx].state = HDL_ACTIVE;
 	hdl_tbl->hdl[idx].priv = hdl_data->priv;
 	hdl_tbl->hdl[idx].ops = hdl_data->ops;
-	hdl_tbl->hdl[idx].dev_id = hdl_data->dev_id;
 	spin_unlock_bh(&hdl_tbl_lock);
 
 	pr_debug("%s: handle = %x", __func__, handle);
@@ -254,7 +250,6 @@ int32_t cam_create_link_hdl(struct cam_create_dev_hdl *hdl_data)
 	hdl_tbl->hdl[idx].state = HDL_ACTIVE;
 	hdl_tbl->hdl[idx].priv = hdl_data->priv;
 	hdl_tbl->hdl[idx].ops = NULL;
-	hdl_tbl->hdl[idx].dev_id = hdl_data->dev_id;
 	spin_unlock_bh(&hdl_tbl_lock);
 
 	CAM_DBG(CAM_CRM, "handle = %x", handle);
@@ -286,7 +281,7 @@ void *cam_get_priv(int32_t dev_hdl, int handle_type)
 	}
 
 	type = CAM_REQ_MGR_GET_HDL_TYPE(dev_hdl);
-	if (type != handle_type) {
+	if (HDL_TYPE_DEV != type && HDL_TYPE_SESSION != type && HDL_TYPE_LINK != type) {
 		CAM_ERR_RATE_LIMIT(CAM_CRM, "Invalid type: %d", type);
 		goto device_priv_fail;
 	}

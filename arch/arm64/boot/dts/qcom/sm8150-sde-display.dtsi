@@ -40,7 +40,6 @@
 #include "dsi-panel-samsung_findx_dsc.dtsi"
 #include "dsi-panel-samsung_sofef00_m_video.dtsi"
 
-
 &tlmm {
 	display_panel_avdd_eldo_default: display_panel_avdd_eldo_default {
 		mux {
