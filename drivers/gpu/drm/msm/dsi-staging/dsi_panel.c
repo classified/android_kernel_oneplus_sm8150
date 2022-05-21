@@ -5073,7 +5073,6 @@ bool real_aod_mode;
 
 extern bool oneplus_dimlayer_hbm_enable;
 bool backup_dimlayer_hbm = false;
-extern int oneplus_auth_status;
 extern int oneplus_dim_status;
 int backup_dim_status = 0;
 int dsi_panel_enable(struct dsi_panel *panel)
@@ -5122,15 +5121,9 @@ int dsi_panel_enable(struct dsi_panel *panel)
 	oneplus_panel_status = 2; // DISPLAY_POWER_ON
 	pr_err("dsi_panel_enable aod_mode =%d\n",panel->aod_mode);
 
-	if (oneplus_auth_status == 2) {
-		backup_dimlayer_hbm = 0;
-		backup_dim_status = 0;
-	} else if (oneplus_auth_status == 1) {
-		backup_dimlayer_hbm = 1;
-		backup_dim_status = 1;
-	}
-
-	oneplus_auth_status = 0;
+	oneplus_dimlayer_hbm_enable = backup_dimlayer_hbm;
+	oneplus_dim_status = backup_dim_status;
+	pr_err("Restore dim when panel goes on");
 
 	blank = MSM_DRM_BLANK_UNBLANK_CHARGE;
 	notifier_data.data = &blank;
