@@ -563,35 +563,6 @@
 				parts = "vbmeta,boot,system,vendor,dtbo,recovery";
 //#endif
 			};
-			android_q_fstab: fstab {
-				compatible = "android,fstab";
-				vendor {
-					compatible = "android,vendor";
-					dev = "/dev/block/platform/soc/8804000.sdhci/by-name/vendor";
-					type = "ext4";
-//#ifdef VENDOR_EDIT
-					//mnt_flags = "ro,barrier=1,discard";
-					mnt_flags = "ro,barrier=1,async_discard";
-//#endif
-
-//#ifdef VENDOR_EDIT
-					//fsmgr_flags = "wait,slotselect,avb";
-					fsmgr_flags = "wait,avb";
-//#endif
-					status = "ok";
-				};
-
-//#ifdef VENDOR_EDIT
-//				odm {
-//					compatible = "android,odm";
-//					dev = "/dev/block/platform/soc/8804000.sdhci/by-name/odm";
-//					type = "ext4";
-//					mnt_flags = "ro,barrier=1,discard";
-//					fsmgr_flags = "wait,slotselect,avb";
-//					status = "ok";
-//				};
-//#endif
-			};
 		};
 	};
 

@@ -570,16 +570,6 @@
 					fsmgr_flags = "wait,avb";
 					status = "ok";
 				};
-//#ifdef VENDOR_EDIT
-//				odm {
-//					compatible = "android,odm";
-//					dev = "/dev/block/platform/soc/8804000.sdhci/by-name/odm";
-//					type = "ext4";
-//					mnt_flags = "ro,barrier=1,discard";
-//					fsmgr_flags = "wait,slotselect,avb";
-//					status = "ok";
-//				};
-//#endif
 			};
 		};
 	};
