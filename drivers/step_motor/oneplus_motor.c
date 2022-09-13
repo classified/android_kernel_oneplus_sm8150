@@ -807,7 +807,7 @@ static void oneplus_set_motor_work_mode_para(int motor_work_mode)
 	static int mode_pre = -1;
 
 	if (g_the_chip == NULL) {
-		MOTOR_LOG("g_the_chip == NULL \n");
+		MOTOR_LOG("g_the_chip == NULL %d \n", mode);
 		return;
 	}
 

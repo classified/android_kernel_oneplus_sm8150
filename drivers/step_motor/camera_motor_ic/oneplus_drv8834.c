@@ -637,6 +637,7 @@ static int drv8834_calculate_pwm_count(int L, int mode)
 		mdmode = 32;
 		break;
 	}
+	MOTOR_LOG("drv8834_calculate_pwm_count %d \n",mdmode);
 	//PWM = (L*18.06*20*32 )/2.4
 	pwm_count = (L * RATIO_B * RATIO_C *RATIO_D) / (RATIO_A * 100);
 	//pwm_count = (L * RATIO_B_FI_6 * RATIO_C *RATIO_D) / (RATIO_A * 100);
