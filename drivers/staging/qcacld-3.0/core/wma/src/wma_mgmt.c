@@ -2057,7 +2057,6 @@ static QDF_STATUS wma_unified_bcn_tmpl_send(tp_wma_handle wma,
 		tmpl_len = *(uint32_t *) &bcn_info->beacon[0];
 	else
 		tmpl_len = bcn_info->beaconLength;
-
 	if (tmpl_len > WMI_BEACON_TX_BUFFER_SIZE) {
 		wma_err("tmpl_len: %d > %d. Invalid tmpl len", tmpl_len,
 			WMI_BEACON_TX_BUFFER_SIZE);
