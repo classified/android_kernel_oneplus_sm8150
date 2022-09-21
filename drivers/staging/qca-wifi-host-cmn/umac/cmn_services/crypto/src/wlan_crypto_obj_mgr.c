@@ -251,6 +251,7 @@ static QDF_STATUS wlan_crypto_peer_obj_destroy_handler(
 		crypto_err("Peer NULL");
 		return QDF_STATUS_E_INVAL;
 	}
+
 	crypto_priv = (struct wlan_crypto_comp_priv *)
 				wlan_get_peer_crypto_obj(peer);
 	if (!crypto_priv) {

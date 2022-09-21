@@ -4342,7 +4342,6 @@ void wlan_crypto_set_sae_single_pmk_bss_cap(struct wlan_objmgr_vdev *vdev,
 	}
 }
 #endif
-
 void wlan_crypto_reset_vdev_params(struct wlan_objmgr_vdev *vdev)
 {
 	struct wlan_crypto_comp_priv *crypto_priv;
