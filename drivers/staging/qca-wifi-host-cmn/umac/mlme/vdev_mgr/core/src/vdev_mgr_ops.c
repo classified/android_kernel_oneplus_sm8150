@@ -162,6 +162,7 @@ static QDF_STATUS vdev_mgr_start_param_update(
 							pdev,
 							des_chan->ch_freq);
 
+	param->channel.dfs_set_cfreq2 = utils_is_dfs_cfreq2_ch(pdev);
 	param->channel.is_chan_passive =
 		utils_is_dfs_chan_for_freq(pdev, param->channel.mhz);
 	param->channel.allow_ht = mlme_obj->proto.ht_info.allow_ht;

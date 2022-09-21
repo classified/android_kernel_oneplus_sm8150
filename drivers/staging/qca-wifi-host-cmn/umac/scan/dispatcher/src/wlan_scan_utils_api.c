@@ -1799,12 +1799,30 @@ static uint32_t util_gen_new_ie(uint8_t *ie, uint32_t ielen,
 						pos += tmp_old[1] + 2;
 					}
 				}
-			} else {
+			} else if (tmp_old[0] == WLAN_ELEMID_EXTN_ELEM) {
+ 				if (tmp_old[2] == tmp[2]) {
+ 					/* same ie, copy from subelement */
+					if ((pos + tmp[1] + 2) <=
+					     (new_ie + ielen)) {
+						qdf_mem_copy(pos, tmp,
+							     tmp[1] + 2);
+						pos += tmp[1] + 2;
+						tmp[0] = 0;
+ 					}
+ 				} else {
+					if ((pos + tmp_old[1] + 2) <=
+					    (new_ie + ielen)) {
+						qdf_mem_copy(pos, tmp_old,
+							     tmp_old[1] + 2);
+						pos += tmp_old[1] + 2;
+ 					}
+ 				}
+ 			} else {
 				/* copy ie from subelement into new ie */
 				if ((pos + tmp[1] + 2) <= (new_ie + ielen)) {
 					qdf_mem_copy(pos, tmp, tmp[1] + 2);
 					pos += tmp[1] + 2;
-					tmp[0] = 0xff;
+					tmp[0] = 0;
 				}
 			}
 		}
@@ -1829,7 +1847,7 @@ static uint32_t util_gen_new_ie(uint8_t *ie, uint32_t ielen,
 				pos += tmp_new[1] + 2;
 			}
 		}
-		if (tmp_new + tmp_new[1] + 2 - sub_copy == subie_len)
+		if (((tmp_new + tmp_new[1] + 2) - sub_copy) >= subie_len)
 			break;
 		tmp_new += tmp_new[1] + 2;
 	}
