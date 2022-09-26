@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -88,14 +89,7 @@ static void lim_fill_status_code(uint8_t frame_type,
 	}
 }
 
-/**
- * lim_process_sae_auth_timeout() - This function is called to process sae
- * auth timeout
- * @mac_ctx: Pointer to Global MAC structure
- *
- * @Return: None
- */
-static void lim_process_sae_auth_timeout(struct mac_context *mac_ctx)
+void lim_process_sae_auth_timeout(struct mac_context *mac_ctx)
 {
 	struct pe_session *session;
 	enum wlan_status_code proto_status_code;
@@ -502,7 +496,7 @@ error:
 	qdf_mem_free(mlm_join_req);
 	if (session)
 		session->pLimMlmJoinReq = NULL;
-	mlmjoin_cnf.resultCode = eSIR_SME_RESOURCES_UNAVAILABLE;
+	mlmjoin_cnf.resultCode = eSIR_SME_PEER_CREATE_FAILED;
 	mlmjoin_cnf.sessionId = sessionid;
 	mlmjoin_cnf.protStatusCode = eSIR_MAC_UNSPEC_FAILURE_STATUS;
 	lim_post_sme_message(mac_ctx, LIM_MLM_JOIN_CNF,

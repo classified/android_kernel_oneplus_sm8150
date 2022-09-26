@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -67,6 +68,7 @@
 #include "wlan_scan_utils_api.h"
 #include "wlan_p2p_cfg_api.h"
 #include "cfg_nan_api.h"
+#include "nan_ucfg_api.h"
 
 #include <ol_defines.h>
 
@@ -1547,11 +1549,12 @@ QDF_STATUS csr_update_channel_list(struct mac_context *mac)
 				}
 			}
 
+			if (!ucfg_is_nan_allowed_on_freq(mac->pdev,
+				pChanList->chanParam[num_channel].freq))
+				pChanList->chanParam[num_channel].nan_disabled =
+					true;
 
-			if (CHANNEL_STATE_ENABLE == channel_state)
-				pChanList->chanParam[num_channel].dfsSet =
-					false;
-			else
+			if (CHANNEL_STATE_ENABLE != channel_state)
 				pChanList->chanParam[num_channel].dfsSet =
 					true;
 
@@ -5381,11 +5384,6 @@ QDF_STATUS csr_roam_set_bss_config_cfg(struct mac_context *mac, uint32_t session
 	/* short slot time */
 	mac->mlme_cfg->feature_flags.enable_short_slot_time_11g =
 						pBssConfig->uShortSlotTime;
-	/* 11d */
-	if (pBssConfig->f11hSupport)
-		mac->mlme_cfg->gen.enabled_11d = pBssConfig->f11hSupport;
-	else
-		mac->mlme_cfg->gen.enabled_11d = pProfile->ieee80211d;
 
 	mac->mlme_cfg->power.local_power_constraint = pBssConfig->uPowerLimit;
 	/* CB */
@@ -8666,6 +8664,7 @@ QDF_STATUS csr_roam_copy_profile(struct mac_context *mac,
 		pDstProfile->extended_rates.numRates =
 			pSrcProfile->extended_rates.numRates;
 	}
+	pDstProfile->require_h2e = pSrcProfile->require_h2e;
 	pDstProfile->cac_duration_ms = pSrcProfile->cac_duration_ms;
 	pDstProfile->dfs_regdomain   = pSrcProfile->dfs_regdomain;
 	pDstProfile->chan_switch_hostapd_rate_enabled  =
@@ -9350,6 +9349,37 @@ QDF_STATUS csr_roam_process_disassoc_deauth(struct mac_context *mac,
 	return status;
 }
 
+static void csr_abort_connect_request_timers(
+	struct mac_context *mac, uint32_t vdev_id)
+{
+	struct scheduler_msg msg;
+	QDF_STATUS status;
+	enum QDF_OPMODE op_mode;
+	struct wlan_objmgr_vdev *vdev;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_pdev(mac->pdev,
+						    vdev_id,
+						    WLAN_LEGACY_SME_ID);
+	if (!vdev) {
+		sme_err("Vdev ref error");
+		return;
+	}
+	op_mode = wlan_vdev_mlme_get_opmode(vdev);
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_SME_ID);
+
+	if (op_mode != QDF_STA_MODE &&
+	    op_mode != QDF_P2P_CLIENT_MODE)
+		return;
+	qdf_mem_zero(&msg, sizeof(msg));
+	msg.bodyval = vdev_id;
+	msg.type = eWNI_SME_ABORT_CONN_TIMER;
+	status = scheduler_post_message(QDF_MODULE_ID_MLME,
+					QDF_MODULE_ID_PE,
+					QDF_MODULE_ID_PE, &msg);
+	if (QDF_IS_STATUS_ERROR(status))
+		sme_debug("msg eWNI_SME_ABORT_CONN_TIMER post fail");
+}
+
 QDF_STATUS csr_roam_issue_disassociate_cmd(struct mac_context *mac,
 					uint32_t sessionId,
 					eCsrRoamDisconnectReason reason,
@@ -9371,6 +9401,8 @@ QDF_STATUS csr_roam_issue_disassociate_cmd(struct mac_context *mac,
 			csr_roam_substate_change(mac, eCSR_ROAM_SUBSTATE_NONE,
 						 sessionId);
 		}
+		csr_abort_connect_request_timers(mac, sessionId);
+
 		pCommand->command = eSmeCommandRoam;
 		pCommand->vdev_id = (uint8_t) sessionId;
 		sme_debug("Disassociate reason: %d, vdev_id: %d",
@@ -14626,6 +14658,7 @@ csr_roam_get_bss_start_parms(struct mac_context *mac,
 	uint32_t opr_ch_freq = 0;
 	tSirNwType nw_type;
 	uint32_t tmp_opr_ch_freq = 0;
+	uint8_t h2e;
 	tSirMacRateSet *opr_rates = &pParam->operationalRateSet;
 	tSirMacRateSet *ext_rates = &pParam->extendedRateSet;
 
@@ -14722,6 +14755,22 @@ csr_roam_get_bss_start_parms(struct mac_context *mac,
 			break;
 		}
 		pParam->operation_chan_freq = opr_ch_freq;
+	}
+
+	if (pProfile->require_h2e) {
+		h2e = WLAN_BASIC_RATE_MASK |
+			WLAN_BSS_MEMBERSHIP_SELECTOR_SAE_H2E;
+		if (ext_rates->numRates < SIR_MAC_MAX_NUMBER_OF_RATES) {
+			ext_rates->rate[ext_rates->numRates] = h2e;
+			ext_rates->numRates++;
+			sme_debug("H2E bss membership add to ext support rate");
+		} else if (opr_rates->numRates < SIR_MAC_MAX_NUMBER_OF_RATES) {
+			opr_rates->rate[opr_rates->numRates] = h2e;
+			opr_rates->numRates++;
+			sme_debug("H2E bss membership add to support rate");
+		} else {
+			sme_err("rates full, can not add H2E bss membership");
+		}
 	}
 
 	pParam->sirNwType = nw_type;
@@ -20004,6 +20053,7 @@ csr_roam_switch_to_deinit(struct mac_context *mac, uint8_t vdev_id,
 		return status;
 
 	mlme_set_roam_state(mac->psoc, vdev_id, ROAM_DEINIT);
+	mlme_clear_operations_bitmap(mac->psoc, vdev_id);
 
 	if (reason != REASON_SUPPLICANT_INIT_ROAMING)
 		csr_enable_roaming_on_connected_sta(mac, vdev_id);
@@ -21195,6 +21245,7 @@ void csr_process_ho_fail_ind(struct mac_context *mac_ctx, void *msg_buf)
 	struct handoff_failure_ind *pSmeHOFailInd = msg_buf;
 	struct mlme_roam_after_data_stall *vdev_roam_params;
 	struct wlan_objmgr_vdev *vdev;
+	struct reject_ap_info ap_info;
 	uint32_t sessionId;
 
 	if (!pSmeHOFailInd) {
@@ -21203,6 +21254,12 @@ void csr_process_ho_fail_ind(struct mac_context *mac_ctx, void *msg_buf)
 	}
 
 	sessionId = pSmeHOFailInd->vdev_id;
+	ap_info.bssid = pSmeHOFailInd->bssid;
+	ap_info.reject_ap_type = DRIVER_AVOID_TYPE;
+	ap_info.reject_reason = REASON_ROAM_HO_FAILURE;
+	ap_info.source = ADDED_BY_DRIVER;
+	wlan_blm_add_bssid_to_reject_list(mac_ctx->pdev, &ap_info);
+
 
 	/* Roaming is supported only on Infra STA Mode. */
 	if (!csr_roam_is_sta_mode(mac_ctx, sessionId)) {

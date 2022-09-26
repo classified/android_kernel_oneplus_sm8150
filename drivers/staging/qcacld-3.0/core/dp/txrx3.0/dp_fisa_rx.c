@@ -215,8 +215,7 @@ dp_rx_fisa_setup_hw_fse(struct dp_rx_fst *fisa_hdl,
 	struct hal_rx_flow flow;
 	void *hw_fse;
 
-	/* REO destination index starts from 1 */
-	flow.reo_destination_indication = flow_steer_info + 1;
+	flow.reo_destination_indication = flow_steer_info;
 	flow.fse_metadata = 0xDEADBEEF;
 	flow.tuple_info.dest_ip_127_96 = rx_flow_info->dest_ip_127_96;
 	flow.tuple_info.dest_ip_95_64 = rx_flow_info->dest_ip_95_64;
@@ -298,7 +297,8 @@ static struct dp_fisa_rx_sw_ft *
 dp_rx_fisa_add_ft_entry(struct dp_rx_fst *fisa_hdl,
 			uint32_t flow_idx_hash,
 			qdf_nbuf_t nbuf, struct dp_vdev *vdev,
-			uint8_t *rx_tlv_hdr)
+			uint8_t *rx_tlv_hdr,
+			uint32_t reo_dest_indication)
 {
 	struct dp_fisa_rx_sw_ft *sw_ft_entry;
 	uint32_t flow_hash;
@@ -352,9 +352,10 @@ dp_rx_fisa_add_ft_entry(struct dp_rx_fst *fisa_hdl,
 				dp_rx_fisa_setup_hw_fse(fisa_hdl,
 							hashed_flow_idx,
 							&rx_flow_tuple_info,
-							reo_id);
+							reo_dest_indication);
 			sw_ft_entry->is_populated = true;
 			sw_ft_entry->napi_id = reo_id;
+			sw_ft_entry->reo_dest_indication = reo_dest_indication;
 			qdf_mem_copy(&sw_ft_entry->rx_flow_tuple_info,
 				     &rx_flow_tuple_info,
 				     sizeof(struct cdp_rx_flow_tuple_info));
@@ -505,7 +506,8 @@ dp_rx_get_fisa_flow(struct dp_rx_fst *fisa_hdl, struct dp_vdev *vdev,
 
 	/* else new flow, add entry to FT */
 	sw_ft_entry = dp_rx_fisa_add_ft_entry(fisa_hdl, flow_idx, nbuf, vdev,
-					      rx_tlv_hdr);
+					      rx_tlv_hdr,
+					      reo_destination_indication);
 
 	return sw_ft_entry;
 }
@@ -1274,6 +1276,7 @@ QDF_STATUS dp_rx_dump_fisa_stats(struct dp_soc *soc)
 		&((struct dp_fisa_rx_sw_ft *)rx_fst->base)[0];
 	int ft_size = rx_fst->max_entries;
 	int i;
+	uint64_t avg_aggregated;
 
 	dp_info("Num of flows programmed %d", rx_fst->add_flow_count);
 	dp_info("Num of flows evicted %d", rx_fst->del_flow_count);
@@ -1289,10 +1292,10 @@ QDF_STATUS dp_rx_dump_fisa_stats(struct dp_soc *soc)
 			sw_ft_entry->napi_id);
 		dp_info("num msdu aggr %d", sw_ft_entry->aggr_count);
 		dp_info("flush count %d", sw_ft_entry->flush_count);
-		dp_info("bytes_aggregated %d", sw_ft_entry->bytes_aggregated);
-		dp_info("avg aggregation %d",
-			sw_ft_entry->bytes_aggregated / sw_ft_entry->flush_count
-			);
+		dp_info("bytes_aggregated %llu", sw_ft_entry->bytes_aggregated);
+		avg_aggregated = sw_ft_entry->bytes_aggregated;
+		qdf_do_div(avg_aggregated, sw_ft_entry->flush_count);
+		dp_info("avg aggregation %llu", avg_aggregated);
 		print_flow_tuple(&sw_ft_entry->rx_flow_tuple_info);
 	}
 	return QDF_STATUS_SUCCESS;
