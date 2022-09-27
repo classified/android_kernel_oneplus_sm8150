@@ -1852,7 +1852,6 @@ int __get_user_pages_fast(unsigned long start, int nr_pages, int write,
 	 * not necessarily the one you intended to get depending on what
 	 * COW event happens after this. COW may break the page copy in a
 	 * random direction.
-	 *
 	 */
 
 	if (gup_fast_permitted(start, nr_pages, write)) {
@@ -1898,13 +1897,13 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 					(void __user *)start, len)))
 		return -EFAULT;
 
-/*
- * The FAST_GUP case requires FOLL_WRITE even for pure reads,
- * because get_user_pages() may need to cause an early COW in
- * order to avoid confusing the normal COW routines. So only
- * targets that are already writable are safe to do by just
- * looking at the page tables.
- */
+	/*
+	 * The FAST_GUP case requires FOLL_WRITE even for pure reads,
+	 * because get_user_pages() may need to cause an early COW in
+	 * order to avoid confusing the normal COW routines. So only
+	 * targets that are already writable are safe to do by just
+	 * looking at the page tables.
+	 */
 	if (gup_fast_permitted(start, nr_pages, write)) {
 		local_irq_disable();
 		gup_pgd_range(addr, end, 1, pages, &nr);
