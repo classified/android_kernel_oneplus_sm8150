@@ -23,7 +23,6 @@
 #include <linux/stddef.h>
 #include <linux/ioport.h>
 #include <linux/delay.h>
-#include <linux/utsname.h>
 #include <linux/initrd.h>
 #include <linux/console.h>
 #include <linux/cache.h>
@@ -103,8 +102,6 @@ u64 __cacheline_aligned boot_args[4];
 unsigned int logical_bootcpu_id __read_mostly;
 EXPORT_SYMBOL(logical_bootcpu_id);
 
-extern void *__init __fixmap_remap_fdt(phys_addr_t dt_phys, int *size,
-				       pgprot_t prot);
 /*
  * Parse the device tree cpu nodes and enumerate logical cpu number for
  * the boot cpu based on the mpidr value and reg value from the cpu node.
@@ -125,7 +122,7 @@ static unsigned int __init parse_logical_bootcpu(u64 dt_phys)
 	 * attempt at mapping the FDT in setup_machine()
 	 */
 	early_fixmap_init();
-	fdt = __fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL);
+	fdt = fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL);
 	if (!fdt)
 		return 0;
 
@@ -277,8 +274,13 @@ const char * __init __weak arch_read_machine_name(void)
 
 static void __init setup_machine_fdt(phys_addr_t dt_phys)
 {
-	void *dt_virt = fixmap_remap_fdt(dt_phys);
+	int size;
+	void *dt_virt = fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL);
 	const char *machine_name;
+	const char *name;
+
+	if (dt_virt)
+		memblock_reserve(dt_phys, size);
 
 	if (!dt_virt || !early_init_dt_scan(dt_virt)) {
 		pr_crit("\n"
@@ -291,8 +293,15 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 			cpu_relax();
 	}
 
+	/* Early fixups are done, map the FDT as read-only now */
+	fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL_RO);
+
 	machine_name = arch_read_machine_name();
 	if (!machine_name)
+		return;
+
+	name = of_flat_dt_get_machine_name();
+	if (!name)
 		return;
 
 	pr_info("Machine: %s\n", machine_name);
@@ -346,7 +355,6 @@ void __init setup_arch(char **cmdline_p)
 {
 	pr_info("Boot CPU: AArch64 Processor [%08x]\n", read_cpuid_id());
 
-	sprintf(init_utsname()->machine, UTS_MACHINE);
 	init_mm.start_code = (unsigned long) _text;
 	init_mm.end_code   = (unsigned long) _etext;
 	init_mm.end_data   = (unsigned long) _edata;
