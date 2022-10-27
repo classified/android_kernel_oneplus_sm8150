@@ -52,9 +52,9 @@
 #define UFSTW_FLUSH_CHECK_PERIOD_MS			1000
 #define UFSTW_FLUSH_WORKER_TH_MIN			3
 #define UFSTW_FLUSH_WORKER_TH_MAX			8
-#define UFSTW_LIFETIME_SECT				8388608 /* 4GB */
+#define UFSTW_LIFETIME_SECT					16777216 /* 8GB */
 #define UFSTW_MAX_LIFETIME_VALUE			0x0B
-#define MASK_UFSTW_LIFETIME_NOT_GUARANTEE		0x80000000
+#define MASK_UFSTW_LIFETIME_NOT_GUARANTEE	0x80000000
 
 /*
  * UFSTW DEBUG
@@ -139,6 +139,9 @@ struct ufstw_lu {
 	struct kobject kobj;
 	struct mutex sysfs_lock;
 	struct ufstw_sysfs_entry *sysfs_entries;
+
+	/*for dynamic tw*/
+	bool dynamic_tw_enable;
 };
 
 struct ufstw_sysfs_entry {
@@ -161,5 +164,5 @@ void ufstw_reset_work_fn(struct work_struct *work);
 void ufstw_suspend(struct ufsf_feature *ufsf);
 void ufstw_resume(struct ufsf_feature *ufsf);
 void ufstw_release(struct kref *kref);
-
+void ufstw_enable_tw(struct ufsf_feature *ufsf, bool enable);
 #endif /* End of Header */

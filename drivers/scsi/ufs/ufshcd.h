@@ -434,6 +434,7 @@ struct ufs_hba_crypto_variant_ops {
 				    struct scsi_cmnd *cmd,
 				    struct ufshcd_lrb *lrbp);
 	void *priv;
+	void *crypto_DO_NOT_USE[8];
 };
 
 /* clock gating state  */
@@ -479,6 +480,7 @@ struct ufs_clk_gating {
 	struct device_attribute delay_perf_attr;
 	struct device_attribute enable_attr;
 	bool is_enabled;
+	bool gate_wk_in_process;
 	int active_reqs;
 	struct workqueue_struct *clk_gating_workq;
 };
@@ -1083,6 +1085,9 @@ struct ufs_hba {
 
 	/* sync b/w diff contexts */
 	struct rw_semaphore lock;
+#ifdef OPLUS_FEATURE_STORAGE_TOOL
+    struct rw_semaphore ffu_lock;
+#endif
 	unsigned long shutdown_in_prog;
 
 	/* If set, don't gate device ref_clk during clock gating */
@@ -1092,8 +1097,6 @@ struct ufs_hba {
 
 	bool full_init_linereset;
 	struct pinctrl *pctrl;
-
-	int latency_hist_enabled;
 #ifdef VENDOR_EDIT
 	struct io_latency_state io_lat_read;
 	struct io_latency_state io_lat_write;
@@ -1104,12 +1107,17 @@ struct ufs_hba {
 	struct ufs_desc_size desc_size;
 	bool restore_needed;
 
+	int latency_hist_enabled;
 	struct io_latency_state io_lat_s;
 
 	bool reinit_g4_rate_A;
 	bool force_g4;
 	/* distinguish between resume and restore */
 	bool restore;
+#ifdef OPLUS_FEATURE_STORAGE_TOOL
+	u8 set_host_blocked;
+	struct work_struct ffu_write_buffer_finished_work;
+#endif
 
 #ifdef VENDOR_EDIT
 #if defined(CONFIG_UFSFEATURE)
@@ -1125,6 +1133,7 @@ struct ufs_hba {
 	union ufs_crypto_cap_entry *crypto_cap_array;
 	u32 crypto_cfg_register;
 	struct keyslot_manager *ksm;
+	void *crypto_DO_NOT_USE[8];
 #endif /* CONFIG_SCSI_UFS_CRYPTO */
 };
 

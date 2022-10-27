@@ -52,6 +52,9 @@ static int ufshpb_create_sysfs(struct ufsf_feature *ufsf,
 			       struct ufshpb_lu *hpb);
 static int ufshpb_remove_sysfs(struct ufshpb_lu *hpb);
 
+static int create_hpbfn_enable_proc(void);
+static void remove_hpbfn_enable_proc(void);
+
 static inline void
 ufshpb_get_pos_from_lpn(struct ufshpb_lu *hpb, unsigned long lpn, int *rgn_idx,
 			int *srgn_idx, int *offset)
@@ -772,12 +775,8 @@ int ufshpb_prepare_add_lrbp(struct ufsf_feature *ufsf, int add_tag)
 	if (err)
 		goto map_err;
 
-	err = ufshcd_vops_crypto_engine_cfg_start(hba, add_tag);
-	if (err)
-		goto crypto_err;
-
 	return 0;
-crypto_err:
+
 	scsi_dma_unmap(pre_cmd);
 map_err:
 	ufshcd_vops_pm_qos_req_end(hba, pre_cmd->request, true);
@@ -812,6 +811,9 @@ void ufshpb_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp)
 
 	rq = lrbp->cmd->request;
 	hpb = ufsf->ufshpb_lup[lrbp->lun];
+	if (!hpb)
+		return;
+
 	ret = ufshpb_lu_get(hpb);
 	if (ret)
 		return;
@@ -2726,10 +2728,10 @@ static inline int ufshpb_version_check(struct ufshpb_dev_info *hpb_dev_info)
 
 	INIT_INFO("HPB Driver Version : %.4X", UFSHPB_DD_VER);
 
-	if (hpb_dev_info->hpb_ver != UFSHPB_VER) {
+	/*if (hpb_dev_info->hpb_ver != UFSHPB_VER) {
 		ERR_MSG("ERROR: HPB Spec Version mismatch. So HPB disabled.");
 		return -ENODEV;
-	}
+	}*/
 	return 0;
 }
 
@@ -2835,6 +2837,7 @@ int ufshpb_get_lu_info(struct ufsf_feature *ufsf, int lun, u8 *unit_buf)
 		hpb->lu_pinned_rgn_startidx =
 			lu_desc.lu_hpb_pinned_rgn_startidx;
 		hpb->lu_pinned_end_offset = lu_desc.lu_hpb_pinned_end_offset;
+		ufsf_para.hpb_rgns = lu_desc.lu_max_active_hpb_rgns;
 	} else {
 		INIT_INFO("===== LU %d is hpb-disabled.", lun);
 		return -ENODEV;
@@ -2855,7 +2858,10 @@ static void ufshpb_error_handler(struct work_struct *work)
 	ufshpb_release(ufsf, HPB_FAILED);
 }
 
+#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
 extern int ufsplus_hpb_status;
+#endif
+
 static int ufshpb_init(struct ufsf_feature *ufsf)
 {
 	int lun, ret;
@@ -2882,10 +2888,11 @@ static int ufshpb_init(struct ufsf_feature *ufsf)
 				goto out_free_mem;
 		}
 		hpb_enabled_lun++;
-		if(hpb_enabled_lun)
-			ufsplus_hpb_status = 1;
 	}
-
+#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
+	if(hpb_enabled_lun)
+		ufsplus_hpb_status = 1;
+#endif
 	if (hpb_enabled_lun == 0) {
 		ERR_MSG("No UFSHPB LU to init");
 		ret = -ENODEV;
@@ -2903,10 +2910,14 @@ static int ufshpb_init(struct ufsf_feature *ufsf)
 		if (ufsf->ufshpb_lup[lun])
 			INFO_MSG("UFSHPB LU %d working", lun);
 
+	create_hpbfn_enable_proc();
+
 	return 0;
 out_free_mem:
-	seq_scan_lu(lun)
+	seq_scan_lu(lun) {
 		kfree(ufsf->ufshpb_lup[lun]);
+		ufsf->ufshpb_lup[lun] = NULL;
+	}
 
 	ufsf->ufshpb_state = HPB_FAILED;
 	return ret;
@@ -3003,6 +3014,8 @@ void ufshpb_release(struct ufsf_feature *ufsf, int state)
 
 	RELEASE_INFO("kref count %d",
 		     atomic_read(&ufsf->ufshpb_kref.refcount.refs));
+
+	remove_hpbfn_enable_proc();
 
 	seq_scan_lu(lun) {
 		hpb = ufsf->ufshpb_lup[lun];
@@ -3113,7 +3126,6 @@ void ufshpb_suspend(struct ufsf_feature *ufsf)
 	seq_scan_lu(lun) {
 		hpb = ufsf->ufshpb_lup[lun];
 		if (hpb) {
-			INFO_MSG("ufshpb_lu %d goto suspend", lun);
 			ufshpb_cancel_jobs(hpb);
 		}
 	}
@@ -3745,4 +3757,84 @@ static int ufshpb_remove_sysfs(struct ufshpb_lu *hpb)
 	kobject_del(&hpb->kobj);
 
 	return 0;
+}
+
+static inline void hpbfn_enable_ctrl(struct ufshpb_lu *hpb, long val)
+{
+	switch (val) {
+	case 0:
+		hpb->force_map_req_disable = true;
+		hpb->force_disable = true;
+		break;
+	case 1:
+		hpb->force_map_req_disable = false;
+		hpb->force_disable = false;
+		break;
+	case 2:
+		ufshpb_failed(hpb, __func__);
+		break;
+	default:
+		break;
+	}
+
+	return;
+}
+
+static ssize_t hpbfn_enable_write(struct file *filp, const char *ubuf,
+				  size_t cnt, loff_t *data)
+{
+	char buf[64] = {0};
+	long val = 64;
+	int lun;
+
+	if (!ufsf_para.ufsf)
+		return -EFAULT;
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+
+	if (buf[0] == '0')
+		val = 0;
+	else if (buf[0] == '1')
+		val = 1;
+	else if (buf[0] == '2')
+		val = 2;
+	else
+		val = 64;
+
+	seq_scan_lu(lun) {
+		if (ufsf_para.ufsf->ufshpb_lup[lun])
+			hpbfn_enable_ctrl(ufsf_para.ufsf->ufshpb_lup[lun],
+					  val);
+	}
+
+	return cnt;
+}
+
+static const struct file_operations hpbfn_enable_fops = {
+	.write = hpbfn_enable_write,
+};
+
+static int create_hpbfn_enable_proc(void)
+{
+	struct proc_dir_entry *d_entry;
+
+	if (!ufsf_para.ctrl_dir)
+		return -EFAULT;
+
+	d_entry = proc_create("hpbfn_enable", S_IWUGO, ufsf_para.ctrl_dir,
+			      &hpbfn_enable_fops);
+	if(!d_entry)
+		return -ENOMEM;
+
+	return 0;
+}
+
+static void remove_hpbfn_enable_proc(void)
+{
+	if (ufsf_para.ctrl_dir)
+		remove_proc_entry("hpbfn_enable", ufsf_para.ctrl_dir);
+
+	return;
 }

@@ -36,6 +36,7 @@
  */
 
 #include <uapi/scsi/ufs/ufs.h>
+#include <linux/delay.h>
 
 #include "ufshcd.h"
 #include "ufstw.h"
@@ -43,6 +44,12 @@
 static int ufstw_create_sysfs(struct ufsf_feature *ufsf, struct ufstw_lu *tw);
 static int ufstw_clear_lu_flag(struct ufstw_lu *tw, u8 idn, bool *flag_res);
 static int ufstw_read_lu_attr(struct ufstw_lu *tw, u8 idn, u32 *attr_val);
+
+static int create_wbfn_enable(void);
+static void remove_wbfn_enable(void);
+
+static int create_wbfn_dynamic_tw_enable(void);
+static void remove_wbfn_dynamic_tw_enable(void);
 
 static inline void ufstw_lu_get(struct ufstw_lu *tw)
 {
@@ -121,6 +128,7 @@ static void ufstw_lifetime_work_fn(struct work_struct *work)
 	else
 		goto tw_disable;
 tw_disable:
+	ufsf_para.tw_lifetime = tw->tw_lifetime_est;
 	ufstw_switch_disable_mode(tw);
 out:
 	ufstw_lu_put(tw);
@@ -136,6 +144,8 @@ void ufstw_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp)
 	if (!ufstw_is_write_lrbp(lrbp))
 		return;
 
+	ufsf_para.total_write_secs += blk_rq_sectors(lrbp->cmd->request);
+
 	tw = ufsf->tw_lup[lrbp->lun];
 	if (!tw)
 		return;
@@ -145,6 +155,8 @@ void ufstw_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp)
 
 	if (!tw->tw_enable)
 		return;
+
+	ufsf_para.tw_write_secs += blk_rq_sectors(lrbp->cmd->request);
 
 	spin_lock_bh(&tw->lifetime_lock);
 	tw->stat_write_sec += blk_rq_sectors(lrbp->cmd->request);
@@ -198,6 +210,45 @@ static int ufstw_read_lu_attr(struct ufstw_lu *tw, u8 idn, u32 *attr_val)
 	return 0;
 }
 
+static int ufstw_set_lu_flag_dynamic_tw(struct ufstw_lu *tw, u8 idn, bool *flag_res)
+{
+	struct ufs_hba *hba = tw->ufsf->hba;
+	int err;
+
+	ufstw_lu_get(tw);
+
+	err = ufsf_query_flag_retry(hba, UPIU_QUERY_OPCODE_SET_FLAG, idn,
+				    (u8)tw->lun, NULL);
+	if (err) {
+		ERR_MSG("set flag [0x%.2X] failed...err %d", idn, err);
+		ufstw_lu_put(tw);
+		return err;
+	}
+
+	*flag_res = true;
+	blk_add_trace_msg(tw->ufsf->sdev_ufs_lu[tw->lun]->request_queue,
+			  "%s:%d IDN %s (%d)", __func__, __LINE__,
+			  idn == QUERY_FLAG_IDN_TW_EN ? "TW_EN" :
+			  idn == QUERY_FLAG_IDN_TW_BUF_FLUSH_EN ? "FLUSH_EN" :
+			  idn == QUERY_FLAG_IDN_TW_FLUSH_DURING_HIBERN ?
+			  "HIBERN_EN" : "UNKNOWN", idn);
+
+	TW_DEBUG(tw->ufsf, "tw_flag LUN(%d) [0x%.2X] %u", tw->lun, idn,
+		 *flag_res);
+
+	switch(idn){
+	case QUERY_FLAG_IDN_TW_EN:
+		ufsf_para.tw_enable = true;
+		break;
+	default:
+		break;
+	}
+
+	ufstw_lu_put(tw);
+
+	return 0;
+}
+
 static int ufstw_set_lu_flag(struct ufstw_lu *tw, u8 idn, bool *flag_res)
 {
 	struct ufs_hba *hba = tw->ufsf->hba;
@@ -226,8 +277,56 @@ static int ufstw_set_lu_flag(struct ufstw_lu *tw, u8 idn, bool *flag_res)
 	TW_DEBUG(tw->ufsf, "tw_flag LUN(%d) [0x%.2X] %u", tw->lun, idn,
 		 *flag_res);
 
+	switch(idn){
+	case QUERY_FLAG_IDN_TW_EN:
+		ufsf_para.tw_enable = true;
+		break;
+	default:
+		break;
+	}
+
 	ufstw_lu_put(tw);
 	pm_runtime_put_sync(hba->dev);
+
+	return 0;
+}
+
+static int ufstw_clear_lu_flag_dynamic_tw(struct ufstw_lu *tw, u8 idn, bool *flag_res)
+{
+	struct ufs_hba *hba = tw->ufsf->hba;
+	int err;
+
+	ufstw_lu_get(tw);
+
+	err = ufsf_query_flag_retry(hba, UPIU_QUERY_OPCODE_CLEAR_FLAG, idn,
+				    (u8)tw->lun, NULL);
+	if (err) {
+		ERR_MSG("clear flag [0x%.2X] failed...err%d", idn, err);
+		ufstw_lu_put(tw);
+		return err;
+	}
+
+	*flag_res = false;
+
+	blk_add_trace_msg(tw->ufsf->sdev_ufs_lu[tw->lun]->request_queue,
+			  "%s:%d IDN %s (%d)", __func__, __LINE__,
+			  idn == QUERY_FLAG_IDN_TW_EN ? "TW_EN" :
+			  idn == QUERY_FLAG_IDN_TW_BUF_FLUSH_EN ? "FLUSH_EN" :
+			  idn == QUERY_FLAG_IDN_TW_FLUSH_DURING_HIBERN ? "HIBERN_EN" :
+			  "UNKNOWN", idn);
+
+	TW_DEBUG(tw->ufsf, "tw_flag LUN(%d) [0x%.2X] %u", tw->lun, idn,
+		 *flag_res);
+
+	switch(idn){
+	case QUERY_FLAG_IDN_TW_EN:
+		ufsf_para.tw_enable = false;
+		break;
+	default:
+		break;
+	}
+
+	ufstw_lu_put(tw);
 
 	return 0;
 }
@@ -260,6 +359,14 @@ static int ufstw_clear_lu_flag(struct ufstw_lu *tw, u8 idn, bool *flag_res)
 
 	TW_DEBUG(tw->ufsf, "tw_flag LUN(%d) [0x%.2X] %u", tw->lun, idn,
 		 *flag_res);
+
+	switch(idn){
+	case QUERY_FLAG_IDN_TW_EN:
+		ufsf_para.tw_enable = false;
+		break;
+	default:
+		break;
+	}
 
 	ufstw_lu_put(tw);
 	pm_runtime_put_sync(hba->dev);
@@ -302,7 +409,7 @@ static int ufstw_auto_ee(struct ufsf_feature *ufsf)
 	struct ufs_hba *hba = ufsf->hba;
 	u16 mask = MASK_EE_TW;
 	u32 val;
-	int err;
+	int err = 0;
 
 	pm_runtime_get_sync(hba->dev);
 
@@ -502,8 +609,6 @@ static inline void ufstw_cancel_lu_jobs(struct ufstw_lu *tw)
 	int ret;
 
 	ret = cancel_delayed_work_sync(&tw->tw_flush_work);
-	INIT_INFO("cancel_delayed_work_sync(tw_flush_work) ufstw_lu%d = %d",
-		  tw->lun, ret);
 	ret = cancel_work_sync(&tw->tw_lifetime_work);
 	INIT_INFO("cancel_work_sync(tw_lifetime_work) ufstw_lu%d = %d",
 		  tw->lun, ret);
@@ -516,10 +621,10 @@ static inline int ufstw_version_check(struct ufstw_dev_info *tw_dev_info)
 
 	INIT_INFO("TW Driver Version : %.4X", UFSTW_DD_VER);
 
-	if (tw_dev_info->tw_ver != UFSTW_VER) {
+	/*if (tw_dev_info->tw_ver != UFSTW_VER) {
 		ERR_MSG("ERROR: TW Spec Version mismatch. So TW disabled.");
 		return -ENODEV;
-	}
+	}*/
 	return 0;
 }
 
@@ -589,6 +694,7 @@ int ufstw_get_lu_info(struct ufsf_feature *ufsf, int lun, u8 *lu_buf)
 		tw = ufsf->tw_lup[lun];
 		tw->ufsf = ufsf;
 		tw->lun = lun;
+		ufsf_para.buffer_size = lu_desc.tw_lu_buf_size;
 		INIT_INFO("tw_lu LUN(%d) [29:2C] dLUNumTurboWriteBufferAllocUnits %u",
 			  lun, lu_desc.tw_lu_buf_size);
 	} else {
@@ -701,33 +807,60 @@ static void ufstw_lu_init(struct ufsf_feature *ufsf, int lun)
 tw_disable:
 	ufstw_switch_disable_mode(tw);
 out:
+	ufsf_para.tw_lifetime = tw->tw_lifetime_est;
 	ufstw_print_lu_flag_attr(tw);
 	ufstw_lu_put(tw);
 }
 
-int ufstw_enable_tw(struct ufstw_lu *tw, bool enable)
+int ufstw_enable_tw_lun(struct ufstw_lu *tw, bool enable)
 {
 	ssize_t ret = 0;
-	pm_runtime_get_sync(tw->ufsf->hba->dev);
+
+	if (!tw->dynamic_tw_enable) {
+		return 0;
+	}
+
+	mutex_lock(&tw->mode_lock);
 	if (enable) {
-		if (ufstw_set_lu_flag(tw, QUERY_FLAG_IDN_TW_EN,
+		if (ufstw_set_lu_flag_dynamic_tw(tw, QUERY_FLAG_IDN_TW_EN,
 				      &tw->tw_enable)) {
 			ret = -EINVAL;
 			goto failed;
 		}
 	} else {
-		if (ufstw_clear_lu_flag(tw, QUERY_FLAG_IDN_TW_EN,
+		if (ufstw_clear_lu_flag_dynamic_tw(tw, QUERY_FLAG_IDN_TW_EN,
 					&tw->tw_enable)) {
 			ret = -EINVAL;
 			goto failed;
 		}
 	}
 
-	INFO_MSG("%s:%d set tw_enable=%d success..\n",
-			__func__, __LINE__, enable);
 failed:
-	pm_runtime_put_sync(tw->ufsf->hba->dev);
+	mutex_unlock(&tw->mode_lock);
+
 	return ret;
+}
+
+void ufstw_enable_tw(struct ufsf_feature *ufsf, bool enable)
+{
+	int ret;
+	int lun;
+
+	if (!ufsf) {
+		ERR_MSG("ERROR: ufsf is NULL!");
+		return;
+	}
+
+	seq_scan_lu(lun) {
+		if (!ufsf->tw_lup[lun])
+			continue;
+
+		ret = ufstw_enable_tw_lun(ufsf->tw_lup[lun], enable);
+		if (ret) {
+			ERR_MSG("ERROR: UFSTW LU %d enable failed!", lun);
+			continue;
+		}
+	}
 }
 
 int ufstw_enable_auto_flush_during_hibern(struct ufstw_lu *tw, bool enable)
@@ -761,7 +894,10 @@ failed:
 	return ret;
 }
 
+#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSTW)
 extern int ufsplus_tw_status;
+#endif
+
 void ufstw_init(struct ufsf_feature *ufsf)
 {
    int ret;
@@ -781,11 +917,9 @@ void ufstw_init(struct ufsf_feature *ufsf)
 		ufstw_lu_init(ufsf, lun);
 
 		ufsf->sdev_ufs_lu[lun]->request_queue->turbo_write_dev = true;
-		ret = ufstw_enable_tw(ufsf->tw_lup[lun], true);
-		if (ret) {
-			ERR_MSG("ERROR: UFSTW LU %d enable failed!", lun);
-			continue;
-		}
+
+		ufsf->tw_lup[lun]->dynamic_tw_enable = true;
+
 		ret = ufstw_enable_auto_flush_during_hibern(ufsf->tw_lup[lun], true);
 		if (ret) {
 			ERR_MSG("ERROR: UFSTW LU %d enable auto flush during hibern failed!", lun);
@@ -794,8 +928,6 @@ void ufstw_init(struct ufsf_feature *ufsf)
 
 		INIT_INFO("UFSTW LU %d working", lun);
 		tw_enabled_lun++;
-		if(tw_enabled_lun)
-			ufsplus_tw_status = 1;
 	}
 
 	if (tw_enabled_lun == 0) {
@@ -807,7 +939,10 @@ void ufstw_init(struct ufsf_feature *ufsf)
 		ERR_MSG("ERROR: dev_info(bDeviceMaxTurboWriteLUs) mismatch. So TW disabled.");
 		goto out_free_mem;
 	}
-
+#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSTW)
+	if(tw_enabled_lun)
+		ufsplus_tw_status = 1;
+#endif
 	/*
 	 * Initialize Device Level...
 	 */
@@ -815,10 +950,15 @@ void ufstw_init(struct ufsf_feature *ufsf)
 	ufstw_init_dev_jobs(ufsf);
 	ufsf->tw_debug = false;
 	atomic_set(&ufsf->tw_state, TW_PRESENT);
+	create_wbfn_enable();
+	create_wbfn_dynamic_tw_enable();
+
 	return;
 out_free_mem:
-	seq_scan_lu(lun)
+	seq_scan_lu(lun){
 		kfree(ufsf->tw_lup[lun]);
+		ufsf->tw_lup[lun] = NULL;
+	}
 
 	ufsf->tw_dev_info.tw_device = false;
 	atomic_set(&ufsf->tw_state, TW_FAILED);
@@ -915,6 +1055,10 @@ void ufstw_release(struct kref *kref)
 
 	ret = cancel_work_sync(&ufsf->tw_reset_work);
 	RELEASE_INFO("cancel_work_sync(tw_reset_work) = %d", ret);
+
+	remove_wbfn_enable();
+
+	remove_wbfn_dynamic_tw_enable();
 
 	seq_scan_lu(lun) {
 		tw = ufsf->tw_lup[lun];
@@ -1030,8 +1174,19 @@ void ufstw_reset_work_fn(struct work_struct *work)
 	}
 
 	INIT_INFO("TW_RESET_START");
-
+//fix dead lock between ufshcd_link_recovery/ufshcd_err_handler/ufstw_reset_work_fn
+#if 0
 	ufstw_reset(ufsf);
+#else
+	if(down_read_trylock(&ufsf->hba->lock) == 0)//try lock fail
+	{
+		usleep_range(500*1000, 500*1000);
+		schedule_work(&ufsf->tw_reset_work);
+	} else {
+		 up_read(&ufsf->hba->lock);
+	         ufstw_reset(ufsf);
+	}
+#endif
 }
 
 /* protected by mutex mode_lock  */
@@ -1411,8 +1566,9 @@ static ssize_t ufstw_sysfs_show_tw_enable(struct ufstw_lu *tw, char *buf)
 	if (ufstw_read_lu_flag(tw, QUERY_FLAG_IDN_TW_EN, &tw->tw_enable))
 		return -EINVAL;
 
-	SYSFS_INFO("TW_enable: %u (0x%X)", tw->tw_enable, tw->tw_enable);
-	return snprintf(buf, PAGE_SIZE, "%u", tw->tw_enable);
+	SYSFS_INFO("TW_enable: %u Dynamic_tw: %u", tw->tw_enable, tw->dynamic_tw_enable);
+	return snprintf(buf, PAGE_SIZE, "TW_enable: %u\nDynamic_tw: %u\n",
+					tw->tw_enable, tw->dynamic_tw_enable);
 }
 
 static ssize_t ufstw_sysfs_store_tw_enable(struct ufstw_lu *tw, const char *buf,
@@ -1621,4 +1777,169 @@ static int ufstw_create_sysfs(struct ufsf_feature *ufsf, struct ufstw_lu *tw)
 	}
 	ufstw_lu_put(tw);
 	return err;
+}
+
+static inline void wbfn_enable_ctrl(struct ufstw_lu *tw, long val)
+{
+
+	mutex_lock(&tw->mode_lock);
+
+	if (atomic_read(&tw->tw_mode) == TW_MODE_MANUAL) {
+		switch (val) {
+		case 0:
+			ufstw_clear_lu_flag(tw, QUERY_FLAG_IDN_TW_EN,
+					    &tw->tw_enable);
+			break;
+		case 1:
+			ufstw_set_lu_flag(tw, QUERY_FLAG_IDN_TW_EN,
+					  &tw->tw_enable);
+			break;
+		default:
+			break;
+		}
+	}
+
+	mutex_unlock(&tw->mode_lock);
+	return;
+}
+
+static ssize_t wbfn_enable_write(struct file *filp, const char *ubuf,
+				 size_t cnt, loff_t *data)
+{
+	char buf[64] = {0};
+	long val = 64;
+	int lun;
+
+	if (!ufsf_para.ufsf)
+		return -EFAULT;
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+
+	if (buf[0] == '0')
+		val = 0;
+	else if (buf[0] == '1')
+		val = 1;
+	else
+		val = 64;
+
+	seq_scan_lu(lun) {
+		if (ufsf_para.ufsf->tw_lup[lun])
+			wbfn_enable_ctrl(ufsf_para.ufsf->tw_lup[lun], val);
+	}
+
+	return cnt;
+}
+
+static const struct file_operations wbfn_enable_fops = {
+	.write = wbfn_enable_write,
+};
+
+static int create_wbfn_enable(void)
+{
+	struct proc_dir_entry *d_entry;
+
+	if (!ufsf_para.ctrl_dir)
+		return -EFAULT;
+
+	d_entry = proc_create("wbfn_enable", S_IWUGO, ufsf_para.ctrl_dir, &wbfn_enable_fops);
+	if(!d_entry)
+		return -ENOMEM;
+
+	return 0;
+}
+
+static void remove_wbfn_enable(void)
+{
+	if (ufsf_para.ctrl_dir)
+		remove_proc_entry("wbfn_enable", ufsf_para.ctrl_dir);
+
+	return;
+}
+
+/* For the RUS gate of dynamic tw */
+static inline void wbfn_dynamic_tw_enable_ctrl(struct ufstw_lu *tw, long val)
+{
+	int ret = 0;
+
+	if (atomic_read(&tw->ufsf->tw_state) == TW_PRESENT) {
+		INFO_MSG("val: %lu\n",val);
+		switch (val) {
+		case 0:
+			tw->dynamic_tw_enable = false;
+			mutex_lock(&tw->mode_lock);
+			ret = ufstw_set_lu_flag(tw, QUERY_FLAG_IDN_TW_EN, &tw->tw_enable);
+			if(ret == 0) {
+				INFO_MSG("ufstw_set_lu_flag success");
+			}
+			mutex_unlock(&tw->mode_lock);
+			break;
+		case 1:
+			tw->dynamic_tw_enable = true;
+			break;
+		default:
+			break;
+		}
+	} else {
+		INFO_MSG("tw_state != TW_PRESENT (%d)\n", atomic_read(&tw->ufsf->tw_state));
+	}
+
+	return;
+}
+
+static ssize_t wbfn_dynamic_tw_enable_write(struct file *filp, const char *ubuf,
+				 size_t cnt, loff_t *data)
+{
+	char buf[64] = {0};
+	long val = 64;
+	int lun;
+
+	if (!ufsf_para.ufsf)
+		return -EFAULT;
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+
+	if (buf[0] == '0')
+		val = 0;
+	else if (buf[0] == '1')
+		val = 1;
+	else
+		val = 64;
+
+	seq_scan_lu(lun) {
+		if (ufsf_para.ufsf->tw_lup[lun])
+			wbfn_dynamic_tw_enable_ctrl(ufsf_para.ufsf->tw_lup[lun], val);
+	}
+
+	return cnt;
+}
+
+static const struct file_operations wbfn_dynamic_tw_enable_fops = {
+	.write = wbfn_dynamic_tw_enable_write,
+};
+
+static int create_wbfn_dynamic_tw_enable(void)
+{
+	struct proc_dir_entry *d_entry;
+
+	if (!ufsf_para.ctrl_dir)
+		return -EFAULT;
+
+	d_entry = proc_create("wbfn_dynamic_tw_enable", S_IWUGO, ufsf_para.ctrl_dir,
+			      &wbfn_dynamic_tw_enable_fops);
+	if(!d_entry)
+		return -ENOMEM;
+
+	return 0;
+}
+
+static void remove_wbfn_dynamic_tw_enable(void)
+{
+	if (ufsf_para.ctrl_dir)
+		remove_proc_entry("wbfn_dynamic_tw_enable", ufsf_para.ctrl_dir);
+
+	return;
 }

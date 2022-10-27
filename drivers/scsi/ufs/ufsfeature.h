@@ -49,6 +49,7 @@
 #if defined(CONFIG_UFSTW)
 #include "ufstw.h"
 #endif
+#include <linux/proc_fs.h>
 
 /* Constant value*/
 #define SECTOR					512
@@ -176,17 +177,22 @@ struct ufsf_feature_para {
 	u64 rgn_act;
 	u64 map_req;
 	u64 pre_req;
+	u16 hpb_rgns;
 #endif
 
 #if defined(CONFIG_UFSTW)
 	u64 tw_state_ts;
 	u64 tw_enable_ms;
 	u64 tw_disable_ms;
-	u64 tw_amount_W_kb;
+	u64 tw_write_secs;
+	u64 total_write_secs;
 	u64 tw_enable_count;
 	u64 tw_disable_count;
 	u64 tw_setflag_error_count;
 	bool tw_info_disable;
+	u32 tw_lifetime;
+	bool tw_enable;
+	unsigned int buffer_size;
 #endif
 	u64 hibern8_amount_ms;
 	u64 hibern8_enter_count;
@@ -195,6 +201,9 @@ struct ufsf_feature_para {
 	u64 hibern8_max_ms;
 	ktime_t hibern8_enter_ts;
 	struct timespec timestamp;
+
+	struct proc_dir_entry *ctrl_dir;
+	struct ufsf_feature *ufsf;
 };
 
 struct ufs_hba;
@@ -229,7 +238,7 @@ void ufsf_hpb_resume(struct ufsf_feature *ufsf);
 void ufsf_hpb_release(struct ufsf_feature *ufsf);
 void ufsf_hpb_set_init_state(struct ufsf_feature *ufsf);
 
-/* for tw */
+/* for tw*/
 void ufsf_tw_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp);
 void ufsf_tw_init(struct ufsf_feature *ufsf);
 void ufsf_tw_reset(struct ufsf_feature *ufsf);
@@ -241,7 +250,11 @@ void ufsf_tw_set_init_state(struct ufsf_feature *ufsf);
 void ufsf_tw_reset_lu(struct ufsf_feature *ufsf);
 void ufsf_tw_reset_host(struct ufsf_feature *ufsf);
 void ufsf_tw_ee_handler(struct ufsf_feature *ufsf);
+void ufsf_tw_enable(struct ufsf_feature *ufsf, bool enable);
 
 /* for monitor */
 extern struct ufsf_feature_para ufsf_para;
+
+int create_ufsplus_ctrl_proc(struct ufsf_feature *ufsf);
+void remove_ufsplus_ctrl_proc(void);
 #endif /* End of Header */

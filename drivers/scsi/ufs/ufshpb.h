@@ -2,6 +2,7 @@
  * Universal Flash Storage Host Performance Booster
  *
  * Copyright (C) 2017-2018 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2020 Oplus. All rights reserved.
  *
  * Authors:
  *	Yongmyung Lee <ymhungry.lee@samsung.com>
@@ -45,8 +46,8 @@
 #include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_driver.h>
 
-#include "../../../block/blk.h"
-#include "../scsi_priv.h"
+#include "../../../../kernel/msm-4.14/block/blk.h"
+#include "../../../../kernel/msm-4.14/drivers/scsi/scsi_priv.h"
 
 /* Version info*/
 #define UFSHPB_VER				0x0200

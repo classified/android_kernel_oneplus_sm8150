@@ -2,6 +2,7 @@
  * Universal Flash Storage Feature Support
  *
  * Copyright (C) 2017-2018 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2020 Oplus. All rights reserved.
  *
  * Authors:
  *	Yongmyung Lee <ymhungry.lee@samsung.com>
@@ -283,16 +284,16 @@ void ufsf_device_check(struct ufs_hba *hba)
 {
 	struct ufsf_feature *ufsf = &hba->ufsf;
 	int ret, lun;
-	u32 status;
+	//u32 status;
 
 	ufsf->slave_conf_cnt = 0;
 
 	ufsf->hba = hba;
 
-	ufshcd_query_attr(ufsf->hba, UPIU_QUERY_OPCODE_READ_ATTR,
+	/*ufshcd_query_attr(ufsf->hba, UPIU_QUERY_OPCODE_READ_ATTR,
 			  QUERY_ATTR_IDN_SUP_VENDOR_OPTIONS, 0, 0, &status);
 	INIT_INFO("UFS FEATURE SELECTOR Dev %d - D/D %d", status,
-		  UFSFEATURE_SELECTOR);
+		  UFSFEATURE_SELECTOR);*/
 
 	ret = ufsf_read_dev_desc(ufsf, UFSFEATURE_SELECTOR);
 	if (ret)
@@ -307,19 +308,24 @@ void ufsf_device_check(struct ufs_hba *hba)
 		if (ret == -ENOMEM)
 			goto out_free_mem;
 	}
+	create_ufsplus_ctrl_proc(ufsf);
 
 	return;
 out_free_mem:
 #if defined(CONFIG_UFSHPB)
-	seq_scan_lu(lun)
+	seq_scan_lu(lun) {
 		kfree(ufsf->ufshpb_lup[lun]);
+		ufsf->ufshpb_lup[lun] = NULL;
+	}
 
 	/* don't call init handler */
 	ufsf->ufshpb_state = HPB_FAILED;
 #endif
 #if defined(CONFIG_UFSTW)
-	seq_scan_lu(lun)
+	seq_scan_lu(lun) {
 		kfree(ufsf->tw_lup[lun]);
+		ufsf->tw_lup[lun] = NULL;
+	}
 
 	ufsf->tw_dev_info.tw_device = false;
 	atomic_set(&ufsf->tw_state, TW_FAILED);
@@ -698,6 +704,16 @@ inline void ufsf_tw_ee_handler(struct ufsf_feature *ufsf)
 			ufstw_ee_handler(ufsf);
 	}
 }
+
+inline void ufsf_tw_enable(struct ufsf_feature *ufsf, bool enable)
+{
+	if (atomic_read(&ufsf->tw_state) == TW_PRESENT) {
+		ufstw_enable_tw(ufsf, enable);
+	} else {
+		INFO_MSG("tw_state != TW_PRESENT (%d)\n", atomic_read(&ufsf->tw_state));
+	}
+}
+
 #else
 inline void ufsf_tw_prep_fn(struct ufsf_feature *ufsf,
 			    struct ufshcd_lrb *lrbp) {}
@@ -710,4 +726,28 @@ inline void ufsf_tw_set_init_state(struct ufsf_feature *ufsf) {}
 inline void ufsf_tw_reset_lu(struct ufsf_feature *ufsf) {}
 inline void ufsf_tw_reset_host(struct ufsf_feature *ufsf) {}
 inline void ufsf_tw_ee_handler(struct ufsf_feature *ufsf) {}
+inline void ufsf_tw_enable(struct ufsf_feature *ufsf, bool enable) {}
 #endif
+int create_ufsplus_ctrl_proc(struct ufsf_feature *ufsf)
+{
+	ufsf_para.ctrl_dir = NULL;
+	ufsf_para.ufsf = NULL;
+
+	ufsf_para.ctrl_dir = proc_mkdir("ufsplus_ctrl", NULL);
+	if (!ufsf_para.ctrl_dir)
+		return -ENOMEM;
+	ufsf_para.ufsf = ufsf;
+
+	return 0;
+}
+
+void remove_ufsplus_ctrl_proc(void)
+{
+	if (ufsf_para.ctrl_dir) {
+		remove_proc_entry("ufsplus_ctrl", NULL);
+		ufsf_para.ctrl_dir = NULL;
+		ufsf_para.ufsf = NULL;
+	}
+
+	return;
+}
