@@ -30,6 +30,7 @@
 #include <linux/mmc/slot-gpio.h>
 
 #include "core.h"
+#include "crypto.h"
 #include "host.h"
 #include "slot-gpio.h"
 #include "pwrseq.h"
@@ -478,6 +479,16 @@ int mmc_retune(struct mmc_host *host)
 			host->ops->prepare_hs400_tuning(host, &host->ios);
 	}
 
+	/*
+	 * Timing should be adjusted to the HS400 target
+	 * operation frequency for tuning process.
+	 * Similar handling is also done in mmc_hs200_tuning()
+	 * This is handled properly in sdhci-msm.c from msm-5.4 onwards.
+	 */
+	if (host->card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400 &&
+		host->ios.bus_width == MMC_BUS_WIDTH_8)
+		mmc_set_timing(host, MMC_TIMING_MMC_HS400);
+
 	err = mmc_execute_tuning(host->card);
 	if (err)
 		goto out;
@@ -696,6 +707,19 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 #ifdef VENDOR_EDIT
         host->card_stuck_in_programing_status = false;
 #endif /* VENDOR_EDIT */
+#ifdef VENDOR_EDIT
+	host->card_multiread_timeout_err_cnt = 0;
+	host->old_blk_rq_rd_pos = 0;
+	host->card_first_rd_timeout = false;
+	host->card_rd_timeout_start = 0;
+	host->card_is_rd_abnormal = false;
+	host->card_multiwrite_timeout_err_cnt = 0;
+	host->old_blk_rq_wr_pos = 0;
+	host->card_first_wr_timeout = false;
+	host->card_wr_timeout_start = 0;
+	host->card_is_wr_abnormal = false;
+#endif /* VENDOR_EDIT */
+
 	host->parent = dev;
 	host->class_dev.parent = dev;
 	host->class_dev.class = &mmc_host_class;
@@ -1052,6 +1076,7 @@ EXPORT_SYMBOL(mmc_remove_host);
  */
 void mmc_free_host(struct mmc_host *host)
 {
+	mmc_crypto_free_host(host);
 	mmc_pwrseq_free(host);
 	put_device(&host->class_dev);
 }
