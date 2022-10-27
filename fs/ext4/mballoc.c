@@ -14,6 +14,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-
+ *
+ * Copyright (C) 2020 Oplus. All rights reserved.
  */
 
 
@@ -1478,10 +1480,24 @@ static void mb_free_blocks(struct inode *inode, struct ext4_buddy *e4b,
 	}
 
 	/* let's maintain fragments counter */
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+	if (left_is_free && right_is_free)
+		e4b->bd_info->bb_fragments--;
+	else if (!left_is_free && !right_is_free) {
+		unsigned free, fragments;
+		e4b->bd_info->bb_fragments++;
+		free = e4b->bd_info->bb_free;
+		fragments = e4b->bd_info->bb_fragments;
+		if (need_defrag(e4b->bd_sb, free, fragments)) {
+			e4defrag_wake_up_thread(e4b->bd_sb);
+		}
+	}
+#else
 	if (left_is_free && right_is_free)
 		e4b->bd_info->bb_fragments--;
 	else if (!left_is_free && !right_is_free)
 		e4b->bd_info->bb_fragments++;
+#endif
 
 	/* buddy[0] == bd_bitmap is a special case, so handle
 	 * it right away and let mb_buddy_mark_free stay free of
@@ -1596,10 +1612,23 @@ static int mb_mark_used(struct ext4_buddy *e4b, struct ext4_free_extent *ex)
 		mlen = !mb_test_bit(start - 1, e4b->bd_bitmap);
 	if (start + len < EXT4_SB(e4b->bd_sb)->s_mb_maxs[0])
 		max = !mb_test_bit(start + len, e4b->bd_bitmap);
+#ifdef CONFIG_EXT4_FS_DEFRAG
+	if (mlen && max) {
+		unsigned free, fragments;
+		e4b->bd_info->bb_fragments++;
+		free = e4b->bd_info->bb_free;
+		fragments = e4b->bd_info->bb_fragments;
+		if (need_defrag(e4b->bd_sb, free, fragments)) {
+			e4defrag_wake_up_thread(e4b->bd_sb);
+		}
+	} else if (!mlen && !max)
+		e4b->bd_info->bb_fragments--;
+#else
 	if (mlen && max)
 		e4b->bd_info->bb_fragments++;
 	else if (!mlen && !max)
 		e4b->bd_info->bb_fragments--;
+#endif
 
 	/* let's maintain buddy itself */
 	while (len) {
@@ -5408,6 +5437,7 @@ out_unload:
 	return error;
 }
 #if defined(CONFIG_OPLUS_FEATURE_EXT4_ASYNC_DISCARD)
+//add for ext4 async discard suppot
 /**
  * ext4_trim_group_partial_seq -- function to trim all free space in alloc. group
  * @sb:			super block for file system
@@ -5618,3 +5648,45 @@ int ext4_trim_groups(struct super_block *sb,  struct discard_cmd_control *dcc)
 }
 #endif
 
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+/**
+ * ext4_mb_query_group_info() -- query the group info
+ * @first_group: first block group to scan
+ * @nr_ro_scan: number block groups to scan
+ * @match_fn: matching function
+ * @reverse: scan in reverse order if true
+ * return true if we found a group matched, otherwise false
+ */
+bool ext4_mb_query_group_info(struct super_block * sb,
+			 ext4_group_t first_group, ext4_group_t nr_to_scan,
+			 bool(*match_fn) (struct ext4_group_info * grp,
+					  ext4_group_t group, void *priv),
+			 void *priv, bool reverse)
+{
+	struct ext4_group_info *grp;
+	ext4_group_t n, group, ngroups;
+	bool found = false;
+
+	ngroups = ext4_get_groups_count(sb);
+	if (unlikely(first_group > ngroups))
+		first_group %= ngroups;
+	if (unlikely(nr_to_scan > ngroups))
+		nr_to_scan = ngroups;
+
+	for (n = 0; n < nr_to_scan; n++) {
+		group = reverse ? first_group - n : first_group + n;
+		if (group >= ngroups)
+			group = reverse ? group + ngroups : group - ngroups;
+		grp = ext4_get_group_info(sb, group);
+		/* We only do this if the grp has never been initialized */
+		if (unlikely(EXT4_MB_GRP_NEED_INIT(grp))) {
+			if (ext4_mb_init_group(sb, group, GFP_NOFS))
+				break;
+		}
+		found = match_fn(grp, group, priv);
+		if (found)
+			break;
+	}
+	return found;
+}
+#endif

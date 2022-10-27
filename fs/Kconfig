@@ -14,11 +14,9 @@ config FS_IOMAP
 	bool
 
 source "fs/ext2/Kconfig"
-#ifdef VENDOR_EDIT
-source "fs/oext4/Kconfig"
-#else
-#source "fs/ext4/Kconfig"
-#endif
+
+source "fs/ext4/Kconfig"
+
 source "fs/jbd2/Kconfig"
 
 config FS_MBCACHE

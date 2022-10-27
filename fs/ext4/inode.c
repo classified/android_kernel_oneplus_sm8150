@@ -17,6 +17,8 @@
  *	(jj@sunsite.ms.mff.cuni.cz)
  *
  *  Assorted race fixes, rewrite of ext4_get_block() by Al Viro, 2000
+ *
+ *  Copyright (C) 2020 Oplus. All rights reserved.
  */
 
 #include <linux/fs.h>
@@ -1600,6 +1602,7 @@ errout:
 			ext4_orphan_del(NULL, inode);
 	}
 #if defined(CONFIG_OPLUS_FEATURE_EXT4_ASYNC_DISCARD)
+        //add for ext4 async discard suppot
 	ext4_update_time(EXT4_SB(inode->i_sb));
 #endif
 	return ret ? ret : copied;
@@ -4845,6 +4848,13 @@ struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
 	} else
 		ei->i_extra_isize = 0;
 
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+	if (unlikely(!raw_inode->i_links_count && !raw_inode->i_mode)) {
+		ret = -ESTALE;
+		goto bad_inode;
+	}
+#endif
+
 	/* Precompute checksum seed for inode metadata */
 	if (ext4_has_metadata_csum(sb)) {
 		struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
@@ -5076,7 +5086,14 @@ bad_inode:
 	iget_failed(inode);
 	return ERR_PTR(ret);
 }
-
+#ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
+struct inode *ext4_iget_normal(struct super_block *sb, unsigned long ino)
+{
+        if (ino < EXT4_FIRST_INO(sb) && ino != EXT4_ROOT_INO)
+                return ERR_PTR(-EFSCORRUPTED);
+        return ext4_iget2(sb, ino);
+}
+#endif
 static int ext4_inode_blocks_set(handle_t *handle,
 				struct ext4_inode *raw_inode,
 				struct ext4_inode_info *ei)

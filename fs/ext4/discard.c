@@ -1,15 +1,7 @@
-/***********************************************************
-** Copyright (C), 2008-2018, OPLUS Mobile Comm Corp., Ltd.
-** File: - discard.c
-** Description: Source file for ext4 async discard suppot.
-** To support ext4 async discard.
-** Version: 1.0
-** Date : 2018/11/26
-**
-** ------------------------------- Revision History:-------------------------------
-** <author> <data> <version > <desc>
-** yh 2018/11/26 1.0 build this module
-****************************************************************/
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (C) 2018-2020 Oplus. All rights reserved.
+ */
 
 #include <linux/fs.h>
 #include <linux/bio.h>
