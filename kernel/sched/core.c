@@ -3323,6 +3323,7 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 unsigned int capacity_margin_freq = 1280; /* ~20% margin */
 
 #ifdef OPLUS_FEATURE_SCHED_ASSIST
+#ifdef CONFIG_SCHED_WALT
 extern int sysctl_frame_rate;
 extern unsigned int sched_ravg_window;
 extern bool ux_task_misfit(struct task_struct *p, int cpu);
@@ -3363,6 +3364,7 @@ static u64 calc_freq_ux_load(struct task_struct *p, u64 wallclock)
 
 	return max(freq_exec_load, freq_ravg_load);
 }
+#endif
 #endif
 
 /*
@@ -3415,6 +3417,7 @@ void scheduler_tick(void)
 	if (early_notif)
 		flag = SCHED_CPUFREQ_WALT | SCHED_CPUFREQ_EARLY_DET;
 #ifdef OPLUS_FEATURE_SCHED_ASSIST
+#ifdef CONFIG_SCHED_WALT
 	adjust_sched_assist_input_ctrl();
 	if (sched_assist_scene(SA_SLIDE)) {
 		if(rq->curr && is_heavy_ux_task(rq->curr) && !ux_task_misfit(rq->curr, cpu)) {
@@ -3431,6 +3434,7 @@ void scheduler_tick(void)
 		ux_task_load[cpu] = 0;
 		ux_load_ts[cpu] = 0;
 	}
+#endif
 #endif
 	cpufreq_update_util(rq, flag);
 	rq_unlock(rq, &rf);

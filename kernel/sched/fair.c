@@ -7515,11 +7515,13 @@ static int start_cpu(struct task_struct *p, bool boosted,
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int start_cpu = -1;
 #ifdef OPLUS_FEATURE_SCHED_ASSIST
+#ifdef CONFIG_SCHED_WALT
 	if (sched_assist_scene(SA_SLIDE) && is_heavy_ux_task(p) && (task_util(p) >= sysctl_boost_task_threshold ||
 		scale_demand(p->ravg.sum) >= sysctl_boost_task_threshold)) {
 		start_cpu = rd->mid_cap_orig_cpu == -1 ?
 			rd->max_cap_orig_cpu : rd->mid_cap_orig_cpu;
 	}
+#endif
 #endif
 #ifdef OPLUS_FEATURE_SCHED_ASSIST
 	if (sysctl_cpu_multi_thread && !is_heavy_load_task(p))
@@ -8454,10 +8456,12 @@ out:
 		set_ux_task_to_prefer_cpu(p, &target_cpu);
 #endif /* OPLUS_FEATURE_SCHED_ASSIST */
 #ifdef OPLUS_FEATURE_SCHED_ASSIST
+#ifdef CONFIG_SCHED_WALT
 	if (sched_assist_scene(SA_SLIDE) && is_heavy_ux_task(p) &&
 		ux_task_misfit(p, target_cpu)) {
 		find_ux_task_cpu(p, &target_cpu);
 	}
+#endif
 #endif /* OPLUS_FEATURE_SCHED_ASSIST */
 
 	if (target_cpu < 0)
