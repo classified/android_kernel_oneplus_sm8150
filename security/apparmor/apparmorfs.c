@@ -426,7 +426,7 @@ static ssize_t policy_update(u32 mask, const char __user *buf, size_t size,
 	 */
 	error = aa_may_manage_policy(label, ns, mask);
 	if (error)
-		return error;
+		goto end_section;
 
 	data = aa_simple_write_to_buffer(buf, size, size, pos);
 	error = PTR_ERR(data);
@@ -434,6 +434,7 @@ static ssize_t policy_update(u32 mask, const char __user *buf, size_t size,
 		error = aa_replace_profiles(ns, label, mask, data);
 		aa_put_loaddata(data);
 	}
+end_section:
 	end_current_label_crit_section(label);
 
 	return error;
@@ -1898,9 +1899,6 @@ fail2:
 
 	return error;
 }
-
-
-#define list_entry_is_head(pos, head, member) (&pos->member == (head))
 
 /**
  * __next_ns - find the next namespace to list

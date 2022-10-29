@@ -263,6 +263,7 @@ EXT4_ATTR_FEATURE(batched_discard);
 EXT4_ATTR_FEATURE(meta_bg_resize);
 #ifdef CONFIG_FS_ENCRYPTION
 EXT4_ATTR_FEATURE(encryption);
+EXT4_ATTR_FEATURE(test_dummy_encryption_v2);
 #endif
 #ifdef CONFIG_UNICODE
 EXT4_ATTR_FEATURE(casefold);
@@ -275,6 +276,9 @@ EXT4_ATTR_FEATURE(metadata_csum_seed);
 extern int ext4_defrag_protect;
 EXT4_ATTR(defrag_protect, 0666, defrag_protect);
 #endif
+#if defined(CONFIG_UNICODE) && defined(CONFIG_FS_ENCRYPTION)
+EXT4_ATTR_FEATURE(encrypted_casefold);
+#endif
 
 static struct attribute *ext4_feat_attrs[] = {
 	ATTR_LIST(lazy_itable_init),
@@ -282,6 +286,7 @@ static struct attribute *ext4_feat_attrs[] = {
 	ATTR_LIST(meta_bg_resize),
 #ifdef CONFIG_FS_ENCRYPTION
 	ATTR_LIST(encryption),
+	ATTR_LIST(test_dummy_encryption_v2),
 #endif
 #ifdef CONFIG_UNICODE
 	ATTR_LIST(casefold),
@@ -292,6 +297,9 @@ static struct attribute *ext4_feat_attrs[] = {
 	ATTR_LIST(metadata_csum_seed),
 #ifdef CONFIG_OPLUS_FEATURE_EXT4_DEFRAG
 	ATTR_LIST(defrag_protect),
+#endif
+#if defined(CONFIG_UNICODE) && defined(CONFIG_FS_ENCRYPTION)
+	ATTR_LIST(encrypted_casefold),
 #endif
 	NULL,
 };

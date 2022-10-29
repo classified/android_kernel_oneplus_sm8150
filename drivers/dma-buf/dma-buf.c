@@ -99,8 +99,6 @@ static void dma_buf_release(struct dentry *dentry)
 	struct dma_buf *dmabuf;
 
 	dmabuf = dentry->d_fsdata;
-	if (unlikely(!dmabuf))
-		return;
 
 	BUG_ON(dmabuf->vmapping_counter);
 
@@ -114,18 +112,14 @@ static void dma_buf_release(struct dentry *dentry)
 	 */
 	BUG_ON(dmabuf->cb_shared.active || dmabuf->cb_excl.active);
 
-
-
 	dmabuf->ops->release(dmabuf);
-
-	dma_buf_ref_destroy(dmabuf);
 
 	if (dmabuf->resv == (struct reservation_object *)&dmabuf[1])
 		reservation_object_fini(dmabuf->resv);
 
 	module_put(dmabuf->owner);
-    kfree(dmabuf->buf_name);
-    kfree(dmabuf);
+	kfree(dmabuf->name);
+	kfree(dmabuf);
 }
 
 static int dma_buf_file_release(struct inode *inode, struct file *file)
@@ -451,7 +445,8 @@ static long dma_buf_ioctl(struct file *file,
 
 		return ret;
 
-	case DMA_BUF_SET_NAME:
+	case DMA_BUF_SET_NAME_A:
+	case DMA_BUF_SET_NAME_B:
 		return dma_buf_set_name(dmabuf, (const char __user *)arg);
 
 	default:
