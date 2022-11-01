@@ -6253,9 +6253,9 @@ static int ufshcd_change_queue_depth(struct scsi_device *sdev, int depth)
 static int ufshcd_slave_configure(struct scsi_device *sdev)
 {
 	struct ufs_hba *hba = shost_priv(sdev->host);
+	struct request_queue *q = sdev->request_queue;
 #if defined(VENDOR_EDIT) && defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = &hba->ufsf;
-	struct request_queue *q = sdev->request_queue;
 
 	if (ufsf_is_valid_lun(sdev->lun)) {
 		ufsf->sdev_ufs_lu[sdev->lun] = sdev;
@@ -6616,7 +6616,6 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
                     }
                 }
             }
-#endif
 #if defined(VENDOR_EDIT) && defined(CONFIG_TRACEPOINTS)
             if (trace_ufshcd_command_enabled())
             {
@@ -6631,7 +6630,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
                             cmd->sdb.length);
                 }
             }
-
+#endif
 
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
@@ -11271,7 +11270,7 @@ void ufshcd_remove(struct ufs_hba *hba)
 	ufsf_hpb_release(&hba->ufsf);
 	ufsf_tw_release(&hba->ufsf);
 #endif
-	ufs_sysfs_remove_nodes(hba->dev);
+	ufshcd_remove_sysfs_nodes(hba);
 	scsi_remove_host(hba->host);
 	/* disable interrupts */
 	ufshcd_disable_intr(hba, hba->intr_mask);
