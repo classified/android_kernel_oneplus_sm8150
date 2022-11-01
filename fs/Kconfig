@@ -14,11 +14,9 @@ config FS_IOMAP
 	bool
 
 source "fs/ext2/Kconfig"
-#ifdef VENDOR_EDIT
-source "fs/oext4/Kconfig"
-#else
-#source "fs/ext4/Kconfig"
-#endif
+
+source "fs/ext4/Kconfig"
+
 source "fs/jbd2/Kconfig"
 
 config FS_MBCACHE
@@ -37,11 +35,7 @@ source "fs/ocfs2/Kconfig"
 source "fs/btrfs/Kconfig"
 source "fs/nilfs2/Kconfig"
 
-#ifdef CONFIG_OPLUS_FEATURE_OF2FS
-source "fs/of2fs/Kconfig"
-#else
-#source "fs/f2fs/Kconfig"
-#endif
+source "fs/f2fs/Kconfig"
 
 config FS_DAX
 	bool "Direct Access (DAX) support"

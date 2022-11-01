@@ -67,12 +67,8 @@ obj-$(CONFIG_DLM)		+= dlm/
 # Do not add any filesystems before this line
 obj-$(CONFIG_FSCACHE)		+= fscache/
 obj-$(CONFIG_REISERFS_FS)	+= reiserfs/
-
-ifneq ($(TARGET_PRODUCT),qssi)
-obj-$(CONFIG_EXT4_FS)		+= oext4/
-else
 obj-$(CONFIG_EXT4_FS)		+= ext4/
-endif
+
 # We place ext4 before ext2 so that clean ext3 root fs's do NOT mount using the
 # ext2 driver, which doesn't know about journalling!  Explicitly request ext2
 # by giving the rootfstype= parameter.
@@ -90,11 +86,7 @@ obj-$(CONFIG_ISO9660_FS)	+= isofs/
 obj-$(CONFIG_HFSPLUS_FS)	+= hfsplus/ # Before hfs to find wrapped HFS+
 obj-$(CONFIG_HFS_FS)		+= hfs/
 obj-$(CONFIG_ECRYPT_FS)		+= ecryptfs/
-ifneq ($(TARGET_PRODUCT),qssi)
-obj-$(CONFIG_SDCARD_FS)		+= osdcardfs/
-else
 obj-$(CONFIG_SDCARD_FS)		+= sdcardfs/
-endif
 obj-$(CONFIG_VXFS_FS)		+= freevxfs/
 obj-$(CONFIG_NFS_FS)		+= nfs/
 obj-$(CONFIG_EXPORTFS)		+= exportfs/
@@ -137,11 +129,7 @@ obj-$(CONFIG_TRACING)		+= tracefs/
 obj-$(CONFIG_OCFS2_FS)		+= ocfs2/
 obj-$(CONFIG_BTRFS_FS)		+= btrfs/
 obj-$(CONFIG_GFS2_FS)           += gfs2/
-ifeq ($(CONFIG_OPLUS_FEATURE_OF2FS),y)
-obj-$(CONFIG_F2FS_FS)		+= of2fs/
-else
 obj-$(CONFIG_F2FS_FS)		+= f2fs/
-endif
 obj-y				+= exofs/ # Multiple modules
 obj-$(CONFIG_EROFS_FS)		+= erofs/
 obj-$(CONFIG_CEPH_FS)		+= ceph/
