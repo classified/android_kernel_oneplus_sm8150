@@ -95,7 +95,6 @@ int cpuidle_register_governor(struct cpuidle_governor *gov)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(cpuidle_register_governor);
 
 /**
  * cpuidle_governor_latency_req - Compute a latency constraint for CPU
@@ -109,4 +108,3 @@ int cpuidle_governor_latency_req(unsigned int cpu)
 
 	return device_req < global_req ? device_req : global_req;
 }
-EXPORT_SYMBOL_GPL(cpuidle_governor_latency_req);
