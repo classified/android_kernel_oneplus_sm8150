@@ -37,6 +37,11 @@ rm -rf kernelzip
 rm -rf *.zip
 rm -rf scripts/AnyKernel3
 
+if ! git clone -q https://github.com/classified/AnyKernel3 -b seven scripts/AnyKernel3; then
+	echo -e "\nAnyKernel3 repo not found locally and cloning failed! Aborting..."
+	exit 1
+fi
+
 echo
 echo "Setting defconfig"
 echo
@@ -57,13 +62,8 @@ make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP
 make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip BRAND_SHOW_FLAG=oneplus TARGET_PRODUCT=msmnile -j$(nproc --all) modules INSTALL_MOD_PATH=modules || exit 1
 make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip BRAND_SHOW_FLAG=oneplus TARGET_PRODUCT=msmnile -j$(nproc --all) modules_install INSTALL_MOD_PATH=modules || exit 1
 
-if ! git clone -q https://github.com/classified/AnyKernel3 -b seven scripts/AnyKernel3; then
-	echo -e "\nAnyKernel3 repo not found locally and cloning failed! Aborting..."
-	exit 1
-fi
-
 # Kernel Output
-if [ -e out/arch/arm64/boot/Image ] ; then
+if [ -e out/arch/arm64/boot/Image.gz ] ; then
 	echo
 	echo "Building Kernel Package"
 	echo
@@ -81,7 +81,7 @@ if [ -e out/arch/arm64/boot/Image ] ; then
 	find out/arch/arm64/boot/dts -name '*.dtb' -exec cat {} + > kernelzip/dtb
 	cd kernelzip/
 	7z a -mx9 $ZIPNAME-tmp.zip *
-	7z a -mx0 $ZIPNAME-tmp.zip ../out/arch/arm64/boot/Image
+	7z a -mx0 $ZIPNAME-tmp.zip ../out/arch/arm64/boot/Image.gz
 	zipalign -v 4 $ZIPNAME-tmp.zip ../$ZIPNAME.zip
 	rm $ZIPNAME-tmp.zip
 	cd ..
