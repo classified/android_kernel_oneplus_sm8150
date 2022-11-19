@@ -34,9 +34,6 @@
 #include <linux/swap.h>
 #include <linux/magic.h>
 #include "../../../../fs/mount.h"
-#ifdef CONFIG_IOMONITOR_WITH_F2FS
-#include "../../../../fs/of2fs/f2fs.h"
-#endif
 
 #define TMP_BUF_LEN 64
 #define ABNORMAL_LOG_NAME "/data/oplus_log/io_abnormal.log"
@@ -44,12 +41,6 @@
 
 #define DATE_STR_LEN 128
 #define IOM_REASON_LENGTH 32
-
-#ifdef CONFIG_IOMONITOR_WITH_F2FS
-extern block_t of2fs_seg_freefrag(struct f2fs_sb_info *sbi,
-				  unsigned int segno, block_t *blocks,
-				  unsigned int n);
-#endif
 
 extern unsigned dump_log(char *buf, unsigned len);
 
@@ -95,9 +86,6 @@ static DEFINE_PER_CPU(struct cal_data_info, rw_data_info) = {
 static DEFINE_PER_CPU(struct cal_page_info, pgpg_info) = {
 0, 0};
 
-#ifdef CONFIG_IOMONITOR_WITH_F2FS
-static struct disk_info disk_status;
-#endif
 static int task_status_init(void);
 
 static struct task_io_info taskio[PID_HASH_LEGNTH];
@@ -504,131 +492,6 @@ struct io_info_entry free_mem_entry = {
 	.type = STR_FREE_ENTRY_TYPE,
 	.get_value = get_free_mem
 };
-
-#ifdef CONFIG_IOMONITOR_WITH_F2FS
-static int f2fs_get_free_disk(struct f2fs_sb_info *sbi)
-{
-	u64 free_size = 0;
-
-	if (!sbi->ckpt || !sbi->sm_info)
-		return 0;
-	if (!sbi->sm_info->dcc_info)
-		return 0;
-
-	free_size = (sbi->user_block_count - sbi->total_valid_block_count);
-	/* Free disk = xxx GB. */
-	free_size >>= (20 - (int)sbi->log_blocksize);
-	return ((int)free_size < 0 ? 0 : (int)free_size);
-}
-
-static void __dump_disk_info(struct inter_disk_data *disk_data)
-{
-	int ret = 0;
-	char *disk_buf;
-	int i;
-	char *p;
-
-	disk_data->len = -1;
-
-	disk_buf = kzalloc(512, GFP_KERNEL);
-	if (!disk_buf)
-		return;
-
-	p = disk_buf;
-	ret = sprintf(p, "%d ", disk_status.score);
-	p = p + ret;
-	disk_data->len += ret;
-
-	ret = sprintf(p, "%d ", disk_status.free);
-	p = p + ret;
-	disk_data->len += ret;
-
-	for (i = 0; i < ARRAY_SIZE(disk_status.blocks); i++) {
-		if (!disk_status.blocks[i])
-			continue;
-		if (i == ARRAY_SIZE(disk_status.blocks) - 1) {
-			ret = sprintf(p, "%d\n", disk_status.blocks[i]);
-			p = p + ret;
-			disk_data->len += ret;
-		} else {
-			ret = sprintf(p, "%d ", disk_status.blocks[i]);
-			p = p + ret;
-			disk_data->len += ret;
-		}
-	}
-
-	disk_data->buf = disk_buf;
-
-	return;
-}
-
-static void __get_disk_info(struct super_block *sb, void *arg)
-{
-	unsigned int i;
-	bool valid_patition = false;
-	struct mount *mnt;
-	struct f2fs_sb_info *sbi;
-	unsigned int total_segs;
-	block_t total_blocks = 0;
-	struct inter_disk_data *disk_data = (struct inter_disk_data *)arg;
-
-	if (disk_data->len != -1)
-		return;
-
-	lock_mount_hash();
-	list_for_each_entry(mnt, &sb->s_mounts, mnt_instance) {
-		if (strstr(mnt->mnt_devname, "userdata")
-		    && strstr(mnt->mnt_mp->m_dentry->d_name.name, "data")) {
-			if (sb->s_magic == F2FS_SUPER_MAGIC) {
-				valid_patition = true;
-				break;
-			}
-		}
-	}
-	unlock_mount_hash();
-
-	if (valid_patition) {
-		sbi = F2FS_SB(sb);
-		total_segs = le32_to_cpu(sbi->raw_super->segment_count_main);
-		memset(&disk_status, 0, sizeof(struct disk_info));
-		for (i = 0; i < total_segs; i++) {
-			total_blocks += of2fs_seg_freefrag(sbi, i,
-					disk_status.blocks,
-					ARRAY_SIZE(disk_status.blocks));
-
-			cond_resched();
-		}
-		disk_status.score =
-		    total_blocks ? (disk_status.blocks[0] +
-			disk_status.blocks[1]) * 100ULL / total_blocks : 0;
-		disk_status.free = f2fs_get_free_disk(sbi);
-
-		__dump_disk_info(disk_data);
-
-	}
-
-	return;
-}
-
-static int get_disk_info(char **data)
-{
-	struct inter_disk_data disk_data;
-
-	disk_data.len = -1;
-	disk_data.buf = NULL;
-
-	iterate_supers(__get_disk_info, &disk_data);
-
-	*data = disk_data.buf;
-	return disk_data.len;
-}
-
-struct io_info_entry disk_info_entry = {
-	.name = "disk",
-	.type = STR_FREE_ENTRY_TYPE,
-	.get_value = get_disk_info,
-};
-#endif
 
 static int get_iowait_info(char **data)
 {
@@ -1508,9 +1371,6 @@ static void add_daily_items(void)
 	add_daily_entry(&device_4k_rw_entry);
 	add_daily_entry(&device_512k_rw_entry);
 	add_daily_entry(&pgpg_status_entry);
-#ifdef CONFIG_IOMONITOR_WITH_F2FS
-	add_daily_entry(&disk_info_entry);
-#endif
 	add_daily_entry(&iowait_info_entry);
 }
 
