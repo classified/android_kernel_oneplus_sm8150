@@ -466,6 +466,8 @@ LDFLAGS :=
 CLANG_FLAGS :=	
 TARGET_BUILD_VARIANT := user
 
+-include OplusKernelEnvConfig.mk
+
 KBUILD_CFLAGS += -DOPLUS_CUSTOM_OP_DEF
 
 #ifdef OPLUS_FEATURE_BUILD
