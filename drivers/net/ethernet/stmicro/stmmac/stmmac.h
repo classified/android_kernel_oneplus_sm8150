@@ -107,6 +107,8 @@ struct stmmac_priv {
 	struct net_device *dev;
 	struct device *device;
 	struct mac_device_info *hw;
+	struct phy_device *phydev;
+	/* Mutex lock */
 	struct mutex lock;
 
 	/* RX Queue */
@@ -157,6 +159,7 @@ struct stmmac_priv {
 	struct dentry *dbgfs_rings_status;
 	struct dentry *dbgfs_dma_cap;
 #endif
+	bool hw_offload_enabled;
 };
 
 struct stmmac_emb_smmu_cb_ctx {

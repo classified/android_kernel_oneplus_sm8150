@@ -516,6 +516,7 @@ struct mmc_host {
 	u32			cached_caps2;
 
 #define MMC_CAP2_BOOTPART_NOACC (1 << 0)        /* Boot partition no access */
+#define MMC_CAP2_CRYPTO		(1 << 1)	/* Host supports inline encryption */
 #define MMC_CAP2_FULL_PWR_CYCLE (1 << 2)        /* Can do full power cycle */
 #define MMC_CAP2_HS200_1_8V_SDR (1 << 5)        /* can support */
 #define MMC_CAP2_HS200_1_2V_SDR (1 << 6)        /* can support */
@@ -553,7 +554,6 @@ struct mmc_host {
 #define MMC_CAP2_MAX_DISCARD_SIZE       (1 << 31)
 #define MMC_CAP2_CQE		(1 << 32)	/* Has eMMC command queue engine */
 #define MMC_CAP2_CQE_DCMD	(1 << 33)	/* CQE can issue a direct command */
-#define MMC_CAP2_CRYPTO		(1 << 34)	/* Host supports inline encryption */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 

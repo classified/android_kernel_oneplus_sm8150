@@ -89,11 +89,27 @@ void fscrypt_generate_iv(union fscrypt_iv *iv, u64 lblk_num,
 #endif
 	memset(iv, 0, ci->ci_mode->ivsize);
 
-	if (flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_64) {
+	if ((fscrypt_policy_contents_mode(&ci->ci_policy) ==
+					  FSCRYPT_MODE_PRIVATE)
+					  && inlinecrypt) {
+		if (ci->ci_inode->i_sb->s_type->name &&
+		    !strcmp(ci->ci_inode->i_sb->s_type->name, "f2fs")) {
+			if (flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32) {
+				WARN_ON_ONCE(lblk_num > U32_MAX);
+				lblk_num = (u32)(ci->ci_hashed_ino + lblk_num);
+			} else {
+				WARN_ON_ONCE(lblk_num > U32_MAX);
+				WARN_ON_ONCE(ci->ci_inode->i_ino > U32_MAX);
+				lblk_num |= (u64)ci->ci_inode->i_ino << 32;
+			}
+		}
+	} else if (flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_64) {
 		WARN_ON_ONCE(lblk_num > U32_MAX);
 		WARN_ON_ONCE(ci->ci_inode->i_ino > U32_MAX);
 		lblk_num |= (u64)ci->ci_inode->i_ino << 32;
-	} else if (flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32) {
+	} else if ((flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32) &&
+		   !(fscrypt_policy_contents_mode(&ci->ci_policy) ==
+		     FSCRYPT_MODE_PRIVATE)) {
 		WARN_ON_ONCE(lblk_num > U32_MAX);
 		lblk_num = (u32)(ci->ci_hashed_ino + lblk_num);
 	} else if (flags & FSCRYPT_POLICY_FLAG_DIRECT_KEY) {
