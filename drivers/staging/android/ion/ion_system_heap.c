@@ -687,63 +687,6 @@ err_create_pool:
 	return -ENOMEM;
 }
 
-#ifdef CONFIG_OPLUS_ION_BOOSTPOOL
-static void init_once(void *foo)
-{
-	;
-}
-#endif /* CONFIG_OPLUS_ION_BOOSTPOOL */
-
-static int fill_page_pool(struct device *dev, struct ion_page_pool *pool)
-{
-	struct page *page;
-
-	if (NULL == pool) {
-		pr_err("%s: pool is NULL!\n", __func__);
-		return -ENOENT;
-	}
-
-	page = ion_page_pool_alloc_pages(pool);
-	if (NULL == page)
-		return -ENOMEM;
-
-	ion_pages_sync_for_device(dev, page,
-				  PAGE_SIZE << pool->order,
-				  DMA_BIDIRECTIONAL);
-
-	ion_page_pool_free(pool, page);
-
-	return 0;
-}
-
-static int fill_pool_kworkthread(void *p)
-{
-	int i;
-	struct ion_system_heap * sh;
-	sh = (struct ion_system_heap *) p;
-
-	pr_info("boot time ION pool filling started\n");
-
-	for (i = 0; i < NUM_ORDERS; i++) {
-		while (global_zone_page_state(NR_IONCACHE_PAGES) <
-				MIN_ION_POOL_PAGES_BOOTUP) {
-			if (fill_page_pool(sh->heap.priv, sh->cached_pools[i]) < 0)
-				break;
-		}
-	}
-
-	for (i = 0; i < NUM_ORDERS; i++) {
-		while (global_zone_page_state(NR_IONCACHE_PAGES) <
-				(2 * MIN_ION_POOL_PAGES_BOOTUP)) {
-			if (fill_page_pool(sh->heap.priv, sh->uncached_pools[i]) < 0)
-				break;
-		}
-	}
-
-	pr_info("boot time ION pool filling ended\n");
-	return 0;
-}
-
 struct ion_heap *ion_system_heap_create(struct ion_platform_heap *data)
 {
 	struct ion_system_heap *heap;

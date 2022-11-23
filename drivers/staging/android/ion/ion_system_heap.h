@@ -56,5 +56,4 @@ void free_buffer_page(struct ion_system_heap *heap,
 int ion_system_heap_create_pools(struct ion_page_pool **pools,
 				 bool cached, bool boost_flag);
 
-void ion_system_heap_destroy_pools(struct ion_page_pool **pools);
 #endif /* _ION_SYSTEM_HEAP_H */
