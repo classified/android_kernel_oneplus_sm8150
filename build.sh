@@ -54,25 +54,12 @@ echo
 
 make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip BRAND_SHOW_FLAG=oneplus TARGET_PRODUCT=msmnile -j$(nproc --all) || exit 1
 
-echo
-echo "Compiling Modules"
-echo
-
-make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip BRAND_SHOW_FLAG=oneplus TARGET_PRODUCT=msmnile -j$(nproc --all) modules_prepare || exit 1
-make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip BRAND_SHOW_FLAG=oneplus TARGET_PRODUCT=msmnile -j$(nproc --all) modules INSTALL_MOD_PATH=modules || exit 1
-make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip BRAND_SHOW_FLAG=oneplus TARGET_PRODUCT=msmnile -j$(nproc --all) modules_install INSTALL_MOD_PATH=modules || exit 1
-
 # Kernel Output
 if [ -e out/arch/arm64/boot/Image.gz ] ; then
 	echo
 	echo "Building Kernel Package"
 	echo
 	rm -rf scripts/AnyKernel3/modules
-	mkdir scripts/AnyKernel3/modules
-	mkdir scripts/AnyKernel3/modules/system
-	mkdir scripts/AnyKernel3/modules/system/lib
-	mkdir scripts/AnyKernel3/modules/system/lib/modules
-	find out/modules -type f -iname '*.ko' -exec cp {} scripts/AnyKernel3/modules/system/lib/modules/ \;
 	rm $ZIPNAME.zip 2>/dev/null
 	rm -rf kernelzip 2>/dev/null
 	# Import Anykernel3 folder
