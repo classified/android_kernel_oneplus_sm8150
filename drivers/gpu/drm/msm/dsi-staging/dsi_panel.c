@@ -1189,6 +1189,9 @@ if (oplus_display_get_hbm_mode()) {
 	}
 #endif /* OPLUS_BUG_STABILITY */
 
+	if (panel->bl_config.bl_inverted_dbv)
+		bl_lvl = (((bl_lvl & 0xff) << 8) | (bl_lvl >> 8));
+
 	rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
 	if (rc < 0)
 		pr_err("failed to update dcs backlight:%d\n", bl_lvl);
@@ -3169,6 +3172,8 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 	}
 	DSI_DEBUG("[%s] seed backlight max value is %d\n", panel->name, panel->oplus_priv.seed_bl_max);
 #endif /* OPLUS_BUG_STABILITY */
+	panel->bl_config.bl_inverted_dbv = utils->read_bool(utils->data,
+		"qcom,mdss-dsi-bl-inverted-dbv");
 
 	if (panel->bl_config.type == DSI_BACKLIGHT_PWM) {
 		rc = dsi_panel_parse_bl_pwm_config(panel);

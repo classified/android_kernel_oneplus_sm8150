@@ -138,6 +138,7 @@ config MMC_SIMULATE_MAX_SPEED
 	  control the write or read maximum KB/second speed behaviors.
 
 	  If unsure, say N here.
+	  
 config MMC_CRYPTO
 	bool "MMC Crypto Engine Support"
 	depends on BLK_INLINE_ENCRYPTION

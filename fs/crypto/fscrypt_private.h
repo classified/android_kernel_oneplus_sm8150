@@ -245,6 +245,7 @@ struct fscrypt_info {
 
 	/* This inode's nonce, copied from the fscrypt_context */
 	u8 ci_nonce[FS_KEY_DERIVATION_NONCE_SIZE];
+	u8 ci_raw_key[FSCRYPT_MAX_KEY_SIZE];
 
 	/* Hashed inode number.  Only set for IV_INO_LBLK_32 */
 	u32 ci_hashed_ino;
@@ -370,6 +371,8 @@ fscrypt_is_key_prepared(struct fscrypt_prepared_key *prep_key,
 	return READ_ONCE(prep_key->tfm) != NULL;
 }
 
+extern int fscrypt_find_storage_type(char **device);
+
 #else /* CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
 
 static inline int fscrypt_select_encryption_impl(struct fscrypt_info *ci,
@@ -415,6 +418,11 @@ fscrypt_is_key_prepared(struct fscrypt_prepared_key *prep_key,
 			const struct fscrypt_info *ci)
 {
 	return READ_ONCE(prep_key->tfm) != NULL;
+}
+
+static inline int fscrypt_find_storage_type(char **device)
+{
+	return -EOPNOTSUPP;
 }
 #endif /* !CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
 

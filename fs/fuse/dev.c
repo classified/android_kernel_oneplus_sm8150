@@ -1350,9 +1350,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 	clear_bit(FR_LOCKED, &req->flags);
 	if (!fpq->connected) {
 		err = -ENODEV;
-		/* Assign abnormal value to req->error when fpq disconnected */
-		if (req->in.h.opcode == FUSE_CANONICAL_PATH)
-			req->out.h.error = -ECONNABORTED;
+		req->out.h.error = err;
 		goto out_end;
 	}
 	if (err) {
