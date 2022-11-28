@@ -1,7 +1,7 @@
 #!/bin/bash
 
 START=$(date +"%s")
-VERSION_NAME="v1.0"
+VERSION_NAME="v1.1"
 ZIPNAME="Classified-op7-${VERSION_NAME}-$(date '+%Y%m%d-%H%M')"
 
 # DEFCONFIG NAME
