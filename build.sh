@@ -1,8 +1,10 @@
 #!/bin/bash
 
 START=$(date +"%s")
-VERSION_NAME="v1.0"
-ZIPNAME="Classified-op7-${VERSION_NAME}-$(date '+%Y%m%d-%H%M')"
+VERSION_NAME="v1.2"
+ZIPNAME="Classified-${VERSION_NAME}-$(date '+%Y%m%d-%H%M')"
+
+export LOCALVERSION="-${VERSION_NAME}"
 
 # DEFCONFIG NAME
 DEFCONFIG="vendor/sm8150-perf_defconfig"
