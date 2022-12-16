@@ -136,7 +136,7 @@ static int dbgp_enable_ep_req(struct usb_ep *ep)
 		goto fail_1;
 	}
 
-	req->buf = kmalloc(DBGP_REQ_LEN, GFP_KERNEL);
+	req->buf = kzalloc(DBGP_REQ_LEN, GFP_KERNEL);
 	if (!req->buf) {
 		err = -ENOMEM;
 		stp = 2;
@@ -355,7 +355,6 @@ static int dbgp_setup(struct usb_gadget *gadget,
 			length = DBGP_REQ_LEN;
 		}
 	}
-
 
 	if (request == USB_REQ_GET_DESCRIPTOR) {
 		switch (value>>8) {

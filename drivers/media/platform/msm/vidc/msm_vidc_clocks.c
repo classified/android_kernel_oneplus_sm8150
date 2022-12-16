@@ -1458,7 +1458,6 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 	struct msm_vidc_core *core;
 	struct msm_vidc_inst *instance = NULL;
 	int complexity;
-
 	core = inst->core;
 	hdev = inst->core->device;
 	if (inst->session_type != MSM_VIDC_ENCODER) {
@@ -1492,6 +1491,10 @@ static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
 		V4L2_CID_MPEG_VIDEO_BITRATE_MODE);
 	if (rc_mode == V4L2_MPEG_VIDEO_BITRATE_MODE_CQ)
 		enable = false;
+  	complexity = msm_comm_g_ctrl_for_id(inst,
+		V4L2_CID_MPEG_VIDC_VENC_COMPLEXITY);
+	if (!is_realtime_session(inst) && !complexity)
+		enable = true;
 
 	complexity = msm_comm_g_ctrl_for_id(inst,
 		V4L2_CID_MPEG_VIDC_VENC_COMPLEXITY);

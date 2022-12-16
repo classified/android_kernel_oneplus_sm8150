@@ -130,6 +130,10 @@ obj-$(CONFIG_BTRFS_FS)		+= btrfs/
 obj-$(CONFIG_GFS2_FS)           += gfs2/
 obj-$(CONFIG_F2FS_FS)		+= f2fs/
 obj-y				+= exofs/ # Multiple modules
+obj-$(CONFIG_EROFS_FS)		+= erofs/
 obj-$(CONFIG_CEPH_FS)		+= ceph/
 obj-$(CONFIG_PSTORE)		+= pstore/
 obj-$(CONFIG_EFIVAR_FS)		+= efivarfs/
+#ifdef OPLUS_FEATURE_EXFAT_SUPPORT
+obj-$(CONFIG_EXFAT_FS)		+= exfat/
+#endif /*OPLUS_FEATURE_EXFAT_SUPPORT*/
