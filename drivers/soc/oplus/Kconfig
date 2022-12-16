@@ -1,0 +1,24 @@
+config OPLUS_ARCH_FILE
+  bool "for build directory oplus"
+  ---help---
+  say Y to buid in
+
+config OPLUS_COMMON_SOFT
+  bool "config oplus common software"
+  select OPLUS_ARCH_FILE
+  help
+  define this config to get project verion from sharemem.
+  Maybe this value is from CDT or dynamic identify by hardware
+  id.
+
+config OPLUS_DEVICE_IFNO
+  bool "config oplus devinfo"
+  select OPLUS_ARCH_FILE
+  help
+	define this config to compile devinfo.c for device register
+
+source "drivers/soc/oplus/system/Kconfig"
+#ifdef OPLUS_ARCH_EXTENDS
+source "drivers/soc/oplus/oplus_kevent_feedback/Kconfig"
+#endif /* OPLUS_ARCH_EXTENDS */
+#endif /* VENDOR_EDIT */

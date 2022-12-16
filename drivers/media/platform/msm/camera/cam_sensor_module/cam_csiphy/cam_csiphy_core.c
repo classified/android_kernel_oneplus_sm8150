@@ -52,12 +52,6 @@ static int cam_csiphy_notify_secure_mode(struct csiphy_device *csiphy_dev,
 		return -EINVAL;
 	}
 
-	CAM_INFO(CAM_CSIPHY, "PHY : %d offset: %d SEC: %d Mask: %d",
-			csiphy_dev->soc_info.index,
-			offset,
-			protect,
-			csiphy_dev->csiphy_cpas_cp_reg_mask[offset]);
-
 	return 0;
 }
 
@@ -850,7 +844,6 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 	}
 		break;
 	case CAM_RELEASE_DEV: {
-		int32_t offset;
 		struct cam_release_dev_cmd release;
 
 		if (!csiphy_dev->acquire_count) {
@@ -865,23 +858,6 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			rc = -EFAULT;
 			goto release_mutex;
 		}
-
-		offset = cam_csiphy_get_instance_offset(csiphy_dev,
-			release.dev_handle);
-		if (offset < 0 || offset >= CSIPHY_MAX_INSTANCES) {
-			CAM_ERR(CAM_CSIPHY, "Invalid offset");
-			goto release_mutex;
-		}
-
-		if (csiphy_dev->csiphy_info.secure_mode[offset])
-			cam_csiphy_notify_secure_mode(
-				csiphy_dev,
-				CAM_SECURE_MODE_NON_SECURE, offset);
-
-		csiphy_dev->csiphy_info.secure_mode[offset] =
-			CAM_SECURE_MODE_NON_SECURE;
-
-		csiphy_dev->csiphy_cpas_cp_reg_mask[offset] = 0x0;
 
 		rc = cam_destroy_device_hdl(release.dev_handle);
 		if (rc < 0)

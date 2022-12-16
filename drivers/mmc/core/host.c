@@ -706,6 +706,22 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 
 	dev_set_name(&host->class_dev, "mmc%d", host->index);
 
+#ifdef VENDOR_EDIT
+        host->card_stuck_in_programing_status = false;
+#endif /* VENDOR_EDIT */
+#ifdef VENDOR_EDIT
+	host->card_multiread_timeout_err_cnt = 0;
+	host->old_blk_rq_rd_pos = 0;
+	host->card_first_rd_timeout = false;
+	host->card_rd_timeout_start = 0;
+	host->card_is_rd_abnormal = false;
+	host->card_multiwrite_timeout_err_cnt = 0;
+	host->old_blk_rq_wr_pos = 0;
+	host->card_first_wr_timeout = false;
+	host->card_wr_timeout_start = 0;
+	host->card_is_wr_abnormal = false;
+#endif /* VENDOR_EDIT */
+
 	host->parent = dev;
 	host->class_dev.parent = dev;
 	host->class_dev.class = &mmc_host_class;
@@ -731,7 +747,9 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	setup_timer(&host->retune_timer, mmc_retune_timer, (unsigned long)host);
 
 	mutex_init(&host->rpmb_req_mutex);
-
+#ifdef VENDOR_EDIT
+    host->detect_change_retry = 5;
+#endif /* VENDOR_EDIT */
 	/*
 	 * By default, hosts do not support SGIO or large requests.
 	 * They have to set these according to their abilities.

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +81,7 @@ static inline void qcom_ice_set_fde_flag(int flag) {}
 
 struct qcom_ice_variant_ops {
 	const char *name;
+	int	(*init)(struct platform_device *, void *, ice_error_cb);
 	int	(*reset)(struct platform_device *);
 	int	(*resume)(struct platform_device *);
 	int	(*suspend)(struct platform_device *);

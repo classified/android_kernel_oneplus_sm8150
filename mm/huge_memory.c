@@ -2211,7 +2211,6 @@ void __split_huge_pmd(struct vm_area_struct *vma, pmd_t *pmd,
 			goto out;
 	}
 
-repeat:
 	if (pmd_trans_huge(*pmd)) {
 		if (!page) {
 			page = pmd_page(*pmd);
@@ -2237,8 +2236,6 @@ repeat:
 	__split_huge_pmd_locked(vma, pmd, haddr, freeze);
 out:
 	spin_unlock(ptl);
-	if (!was_locked && page)
-		unlock_page(page);
 	mmu_notifier_invalidate_range_end(mm, haddr, haddr + HPAGE_PMD_SIZE);
 }
 

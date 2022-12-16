@@ -42,6 +42,10 @@
  * the parent directory's parent as well, and so on recursively, if
  * they are also freshly created.
  */
+#ifdef CONFIG_OPLUS_FEATURE_PANIC_FLUSH
+/*add control ext4 fsync*/
+extern unsigned int ext4_fsync_enable_status;
+#endif
 static int ext4_sync_parent(struct inode *inode)
 {
 	struct dentry *dentry, *next;
@@ -146,8 +150,14 @@ int ext4_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 	}
 
 	commit_tid = datasync ? ei->i_datasync_tid : ei->i_sync_tid;
+#ifdef CONFIG_OPLUS_FEATURE_PANIC_FLUSH
+        /*add control ext4 fsync*/
+	if (!ext4_fsync_enable_status && journal->j_flags & JBD2_BARRIER &&
+	    !jbd2_trans_will_send_data_barrier(journal, commit_tid))
+#else
 	if (journal->j_flags & JBD2_BARRIER &&
 	    !jbd2_trans_will_send_data_barrier(journal, commit_tid))
+#endif
 		needs_barrier = true;
 	ret = jbd2_complete_transaction(journal, commit_tid);
 	if (needs_barrier) {

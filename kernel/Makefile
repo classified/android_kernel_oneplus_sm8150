@@ -12,6 +12,10 @@ obj-y     = fork.o exec_domain.o panic.o \
 	    notifier.o ksysfs.o cred.o reboot.o \
 	    async.o range.o smpboot.o ucount.o
 
+#ifdef CONFIG_OPLUS_FEATURE_PANIC_FLUSH
+obj-y += panic_flush.o
+#endif
+
 obj-$(CONFIG_MODULES) += kmod.o
 obj-$(CONFIG_MULTIUSER) += groups.o
 
@@ -45,6 +49,9 @@ obj-y += printk/
 obj-y += irq/
 obj-y += rcu/
 obj-y += livepatch/
+#ifdef CONFIG_OPLUS_SECURE_GUARD
+obj-y += keventupload/
+#endif /* CONFIG_OPLUS_SECURE_GUARD */
 
 obj-$(CONFIG_CHECKPOINT_RESTORE) += kcmp.o
 obj-$(CONFIG_FREEZER) += freezer.o
