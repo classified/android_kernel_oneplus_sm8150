@@ -1431,6 +1431,9 @@ static int card_busy_detect(struct mmc_card *card, unsigned int timeout_ms,
 			pr_err("%s: Card stuck in programming state! %s %s\n",
 				mmc_hostname(card->host),
 				req->rq_disk->disk_name, __func__);
+#ifdef VENDOR_EDIT
+				card->host->card_stuck_in_programing_status = true;
+#endif /* VENDOR_EDIT */
 			return -ETIMEDOUT;
 		}
 
@@ -2093,6 +2096,56 @@ static enum mmc_blk_status mmc_blk_err_check(struct mmc_card *card,
 
 	/* Some errors (ECC) are flagged on the next commmand, so check stop, too */
 	if (brq->data.error || brq->stop.error) {
+#ifdef VENDOR_EDIT
+		if ((-ETIMEDOUT == brq->data.error) && (mmc_card_sd(card))) {
+			if ((rq_data_dir(req) == READ) && (card->host->old_blk_rq_rd_pos != blk_rq_pos(req))) {
+				card->host->old_blk_rq_rd_pos = blk_rq_pos(req);
+				if (!card->host->card_first_rd_timeout) {
+						card->host->card_first_rd_timeout = true;
+						card->host->card_rd_timeout_start = jiffies;
+						card->host->card_multiread_timeout_err_cnt = 0;
+				} else {
+					if (time_before_eq(jiffies, card->host->card_rd_timeout_start + msecs_to_jiffies(MMC_MULTIREAD_CNT_WINDOW_S * 1000))) {
+						if (card->host->card_multiread_timeout_err_cnt < MAX_MULTIREAD_TIMEOUT_ERR_CNT) {
+							card->host->card_multiread_timeout_err_cnt++;
+						} else {
+							card->host->card_is_rd_abnormal = true;
+						}
+					} else {
+						card->host->card_rd_timeout_start = jiffies;
+						card->host->card_multiread_timeout_err_cnt = 0;
+					}
+				}
+
+				pr_err("%s: read SD Card sector %u timeout, error count %#d\n",
+					req->rq_disk->disk_name, (unsigned)blk_rq_pos(req),
+					card->host->card_multiread_timeout_err_cnt);
+			}
+			if ((rq_data_dir(req) == WRITE) && (card->host->old_blk_rq_wr_pos != blk_rq_pos(req))) {
+				card->host->old_blk_rq_wr_pos = blk_rq_pos(req);
+				if (!card->host->card_first_wr_timeout) {
+					card->host->card_first_wr_timeout = true;
+					card->host->card_wr_timeout_start = jiffies;
+					card->host->card_multiwrite_timeout_err_cnt = 0;
+				} else {
+					if (time_before_eq(jiffies, card->host->card_wr_timeout_start + msecs_to_jiffies(MMC_MULTIWRITE_CNT_WINDOW_S * 1000))) {
+						if (card->host->card_multiwrite_timeout_err_cnt < MAX_MULTIWRITE_TIMEOUT_ERR_CNT) {
+							card->host->card_multiwrite_timeout_err_cnt++;
+						} else {
+							card->host->card_is_wr_abnormal = true;
+						}
+					} else {
+						card->host->card_wr_timeout_start = jiffies;
+						card->host->card_multiwrite_timeout_err_cnt = 0;
+					}
+				}
+				pr_err("%s: write SD Card sector %u timeout, error count %#d\n",
+					req->rq_disk->disk_name, (unsigned)blk_rq_pos(req),
+					card->host->card_multiwrite_timeout_err_cnt);
+			}
+		}
+#endif /* VENDOR_EDIT */
+
 		if (need_retune && !brq->retune_retry_done) {
 			pr_debug("%s: retrying because a re-tune was needed\n",
 				 req->rq_disk->disk_name);
@@ -4263,8 +4316,10 @@ static int mmc_blk_probe(struct mmc_card *card)
 	/*
 	 * Check that the card supports the command class(es) we need.
 	 */
+#ifndef VENDOR_EDIT
 	if (!(card->csd.cmdclass & CCC_BLOCK_READ))
 		return -ENODEV;
+#endif
 
 	mmc_fixup_device(card, mmc_blk_fixups);
 
@@ -4315,6 +4370,18 @@ static int mmc_blk_probe(struct mmc_card *card)
 	mmc_blk_remove_req(md);
 	return 0;
 }
+
+#ifdef VENDOR_EDIT
+char *capacity_string(struct mmc_card *card){
+	static char cap_str[10] = "unknown";
+	struct mmc_blk_data *md = (struct mmc_blk_data *)card->dev.driver_data;
+	if(md==NULL){
+		return 0;
+	}
+	string_get_size((u64)get_capacity(md->disk), 512, STRING_UNITS_2, cap_str, sizeof(cap_str));
+	return cap_str;
+}
+#endif
 
 static void mmc_blk_remove(struct mmc_card *card)
 {

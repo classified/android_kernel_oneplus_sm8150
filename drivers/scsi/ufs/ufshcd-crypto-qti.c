@@ -351,6 +351,7 @@ int ufshcd_crypto_qti_prep_lrbp_crypto(struct ufs_hba *hba,
 	return 0;
 }
 
+
 int ufshcd_crypto_qti_debug(struct ufs_hba *hba)
 {
 	return crypto_qti_debug(hba->crypto_vops->priv);

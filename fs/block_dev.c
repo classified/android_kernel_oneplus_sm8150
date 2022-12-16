@@ -1439,8 +1439,10 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 	 */
 	if (!for_part) {
 		ret = devcgroup_inode_permission(bdev->bd_inode, perm);
-		if (ret != 0)
+		if (ret != 0) {
+			bdput(bdev);
 			return ret;
+		}
 	}
 
  restart:
@@ -1570,6 +1572,7 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 	put_disk(disk);
 	module_put(owner);
  out:
+	bdput(bdev);
 
 	return ret;
 }

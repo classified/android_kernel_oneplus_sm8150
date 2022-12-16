@@ -1475,8 +1475,10 @@ void msm_mode_object_event_notify(struct drm_mode_object *obj,
 	spin_lock_irqsave(&dev->event_lock, flags);
 	list_for_each_entry(node, &priv->client_event_list, base.link) {
 		if (node->event.type != event->type ||
-			obj->id != node->info.object_id)
+			obj->id != node->info.object_id) {
+			SDE_EVT32(node->event.type, event->type, obj->id, node->info.object_id);
 			continue;
+		}
 		len = event->length + sizeof(struct msm_drm_event);
 		if (node->base.file_priv->event_space < len) {
 			DRM_ERROR("Insufficient space %d for event %x len %d\n",
@@ -1485,8 +1487,10 @@ void msm_mode_object_event_notify(struct drm_mode_object *obj,
 			continue;
 		}
 		notify = kzalloc(len, GFP_ATOMIC);
-		if (!notify)
+		if (!notify) {
+			SDE_EVT32(0x1111, SDE_EVTLOG_ERROR);
 			continue;
+		}
 		notify->base.file_priv = node->base.file_priv;
 		notify->base.event = &notify->event;
 		notify->event.type = node->event.type;
@@ -1496,11 +1500,15 @@ void msm_mode_object_event_notify(struct drm_mode_object *obj,
 		memcpy(notify->data, payload, event->length);
 		ret = drm_event_reserve_init_locked(dev, node->base.file_priv,
 			&notify->base, &notify->event);
+		SDE_EVT32(notify->base.event, notify->event.type);
 		if (ret) {
 			kfree(notify);
+			pr_err("%s: Notify Failed\n", __func__);
+			SDE_EVT32(0x2222, SDE_EVTLOG_ERROR);
 			continue;
 		}
 		drm_send_event_locked(dev, &notify->base);
+		SDE_EVT32(notify->base.event, notify->event.type, obj->id);
 	}
 	spin_unlock_irqrestore(&dev->event_lock, flags);
 }

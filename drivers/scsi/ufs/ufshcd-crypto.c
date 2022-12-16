@@ -125,6 +125,7 @@ static int ufshcd_program_key(struct ufs_hba *hba,
 	u32 slot_offset = hba->crypto_cfg_register + slot * sizeof(*cfg);
 	int err;
 
+	pm_runtime_get_sync(hba->dev);
 	ufshcd_hold(hba, false);
 
 	if (hba->var->vops->program_key) {
@@ -154,6 +155,7 @@ static int ufshcd_program_key(struct ufs_hba *hba,
 	err = 0;
 out:
 	ufshcd_release(hba, false);
+	pm_runtime_put_sync(hba->dev);
 	return err;
 }
 
@@ -399,6 +401,7 @@ int ufshcd_prepare_lrbp_crypto_spec(struct ufs_hba *hba,
 	lrbp->crypto_enable = true;
 	lrbp->crypto_key_slot = bc->bc_keyslot;
 	lrbp->data_unit_num = bc->bc_dun[0];
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ufshcd_prepare_lrbp_crypto_spec);

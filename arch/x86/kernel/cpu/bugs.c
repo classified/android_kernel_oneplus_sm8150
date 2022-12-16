@@ -1052,9 +1052,8 @@ spectre_v2_user_select_mitigation(void)
 		return;
 
 	/*
-	 * At this point, an STIBP mode other than "off" has been set.
-	 * If STIBP support is not being forced, check if STIBP always-on
-	 * is preferred.
+	 * If SMT is not possible or STIBP is not available clear the STIPB
+	 * mode.
 	 */
 	if (mode != SPECTRE_V2_USER_STRICT &&
 	    boot_cpu_has(X86_FEATURE_AMD_STIBP_ALWAYS_ON))
@@ -1063,7 +1062,10 @@ spectre_v2_user_select_mitigation(void)
 	spectre_v2_user_stibp = mode;
 
 set_mode:
-	pr_info("%s\n", spectre_v2_user_strings[mode]);
+	spectre_v2_user = mode;
+	/* Only print the STIBP mode when SMT possible */
+	if (smt_possible)
+		pr_info("%s\n", spectre_v2_user_strings[mode]);
 }
 
 static const char * const spectre_v2_strings[] = {
@@ -1734,8 +1736,7 @@ static int ib_prctl_set(struct task_struct *task, unsigned long ctrl)
 {
 	switch (ctrl) {
 	case PR_SPEC_ENABLE:
-		if (spectre_v2_user_ibpb == SPECTRE_V2_USER_NONE &&
-		    spectre_v2_user_stibp == SPECTRE_V2_USER_NONE)
+		if (spectre_v2_user == SPECTRE_V2_USER_NONE)
 			return 0;
 		/*
 		 * With strict mode for both IBPB and STIBP, the instruction
@@ -1765,8 +1766,7 @@ static int ib_prctl_set(struct task_struct *task, unsigned long ctrl)
 		 * Indirect branch speculation is always allowed when
 		 * mitigation is force disabled.
 		 */
-		if (spectre_v2_user_ibpb == SPECTRE_V2_USER_NONE &&
-		    spectre_v2_user_stibp == SPECTRE_V2_USER_NONE)
+		if (spectre_v2_user == SPECTRE_V2_USER_NONE)
 			return -EPERM;
 
 		if (!is_spec_ib_user_controlled())
@@ -1803,8 +1803,7 @@ void arch_seccomp_spec_mitigate(struct task_struct *task)
 {
 	if (ssb_mode == SPEC_STORE_BYPASS_SECCOMP)
 		ssb_prctl_set(task, PR_SPEC_FORCE_DISABLE);
-	if (spectre_v2_user_ibpb == SPECTRE_V2_USER_SECCOMP ||
-	    spectre_v2_user_stibp == SPECTRE_V2_USER_SECCOMP)
+	if (spectre_v2_user == SPECTRE_V2_USER_SECCOMP)
 		ib_prctl_set(task, PR_SPEC_FORCE_DISABLE);
 }
 #endif
@@ -1833,8 +1832,8 @@ static int ib_prctl_get(struct task_struct *task)
 	if (!boot_cpu_has_bug(X86_BUG_SPECTRE_V2))
 		return PR_SPEC_NOT_AFFECTED;
 
-	if (spectre_v2_user_ibpb == SPECTRE_V2_USER_NONE &&
-	    spectre_v2_user_stibp == SPECTRE_V2_USER_NONE)
+	switch (spectre_v2_user) {
+	case SPECTRE_V2_USER_NONE:
 		return PR_SPEC_ENABLE;
 	else if (is_spec_ib_user_controlled()) {
 		if (task_spec_ib_force_disable(task))
@@ -1848,6 +1847,7 @@ static int ib_prctl_get(struct task_struct *task)
 		return PR_SPEC_DISABLE;
 	else
 		return PR_SPEC_NOT_AFFECTED;
+	}
 }
 
 int arch_prctl_spec_ctrl_get(struct task_struct *task, unsigned long which)
@@ -2103,7 +2103,7 @@ static char *stibp_state(void)
 	if (spectre_v2_in_ibrs_mode(spectre_v2_enabled))
 		return "";
 
-	switch (spectre_v2_user_stibp) {
+	switch (spectre_v2_user) {
 	case SPECTRE_V2_USER_NONE:
 		return ", STIBP: disabled";
 	case SPECTRE_V2_USER_STRICT:
