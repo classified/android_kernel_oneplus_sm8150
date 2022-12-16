@@ -149,7 +149,7 @@ struct dev_data {
 	struct dentry			*dentry;
 
 	/* except this scratch i/o buffer for ep0 */
-	u8				rbuf[RBUF_SIZE];
+	u8				rbuf [RBUF_SIZE];
 };
 
 static inline void get_dev (struct dev_data *data)

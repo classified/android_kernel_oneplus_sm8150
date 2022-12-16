@@ -1161,6 +1161,12 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			"Failed to decide work mode for session %pK\n", inst);
 		goto fail_start;
 	}
+	if (inst->session_type == MSM_VIDC_DECODER &&
+		!inst->operating_rate_set && !is_realtime_session(inst)) {
+		inst->clk_data.turbo_mode = true;
+		dprintk(VIDC_INFO,
+			"inst(%pK) setting turbo mode ");
+	}
 
 	if (inst->session_type == MSM_VIDC_DECODER &&
 		!inst->operating_rate_set && !is_realtime_session(inst)) {
