@@ -44,6 +44,13 @@ if ! git clone -q https://github.com/classified/AnyKernel3 -b seven scripts/AnyK
 	exit 1
 fi
 
+if [[ $1 = "-r" || $1 = "--regen" ]]; then
+	make O=out ARCH=arm64 $DEFCONFIG savedefconfig
+	cp out/defconfig arch/arm64/configs/$DEFCONFIG
+	echo -e "\nSuccessfully regenerated defconfig at $DEFCONFIG"
+	exit
+fi
+
 echo
 echo "Setting defconfig"
 echo
@@ -56,38 +63,32 @@ echo
 
 make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip BRAND_SHOW_FLAG=oneplus TARGET_PRODUCT=msmnile -j$(nproc --all) || exit 1
 
-echo
-echo "Compiling Modules"
-echo
-
-make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip BRAND_SHOW_FLAG=oneplus TARGET_PRODUCT=msmnile -j$(nproc --all) modules_prepare || exit 1
-make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip BRAND_SHOW_FLAG=oneplus TARGET_PRODUCT=msmnile -j$(nproc --all) modules INSTALL_MOD_PATH=modules || exit 1
-make O=out CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip BRAND_SHOW_FLAG=oneplus TARGET_PRODUCT=msmnile -j$(nproc --all) modules_install INSTALL_MOD_PATH=modules || exit 1
+kernel="out/arch/arm64/boot/Image.gz"
+dtb="out/arch/arm64/boot/dtb.img"
+dtbo="out/arch/arm64/boot/dtbo.img"
 
 # Kernel Output
-if [ -e out/arch/arm64/boot/Image.gz ] ; then
+if [ -f "$kernel" ] && [ -f "$dtb" ] && [ -f "$dtbo" ]; then
 	echo
 	echo "Building Kernel Package"
 	echo
 	rm -rf scripts/AnyKernel3/modules
-	mkdir scripts/AnyKernel3/modules
-	mkdir scripts/AnyKernel3/modules/system
-	mkdir scripts/AnyKernel3/modules/system/lib
-	mkdir scripts/AnyKernel3/modules/system/lib/modules
-	find out/modules -type f -iname '*.ko' -exec cp {} scripts/AnyKernel3/modules/system/lib/modules/ \;
 	rm $ZIPNAME.zip 2>/dev/null
 	rm -rf kernelzip 2>/dev/null
 	# Import Anykernel3 folder
 	mkdir kernelzip
 	cp -rp scripts/AnyKernel3/* kernelzip/
-	find out/arch/arm64/boot/dts -name '*.dtb' -exec cat {} + > kernelzip/dtb
+	cp $kernel $dtbo kernelzip/
+	cp $dtb kernelzip/dtb
 	cd kernelzip/
 	7z a -mx9 $ZIPNAME-tmp.zip *
-	7z a -mx0 $ZIPNAME-tmp.zip ../out/arch/arm64/boot/Image.gz
 	zipalign -v 4 $ZIPNAME-tmp.zip ../$ZIPNAME.zip
 	rm $ZIPNAME-tmp.zip
 	cd ..
 	ls -al $ZIPNAME.zip
+else
+	echo "\nCompilation failed!"
+	exit 1
 fi
 
 # Show compilation time
