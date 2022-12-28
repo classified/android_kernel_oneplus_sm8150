@@ -1,7 +1,7 @@
 #!/bin/bash
 
 START=$(date +"%s")
-VERSION_NAME="v1.2"
+VERSION_NAME="v1.3"
 ZIPNAME="Classified-${VERSION_NAME}-$(date '+%Y%m%d-%H%M')"
 
 export LOCALVERSION="-${VERSION_NAME}"
