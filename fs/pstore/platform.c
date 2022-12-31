@@ -356,7 +356,11 @@ static int decompress_lz4(void *in, void *out, size_t inlen, size_t outlen)
 {
 	int ret;
 
+#if defined(CONFIG_ARM64) && defined(CONFIG_KERNEL_MODE_NEON)
+	ret = LZ4_arm64_decompress_safe(in, out, inlen, outlen, false);
+#else
 	ret = LZ4_decompress_safe(in, out, inlen, outlen);
+#endif
 	if (ret < 0) {
 		/*
 		 * LZ4_decompress_safe will return an error code
