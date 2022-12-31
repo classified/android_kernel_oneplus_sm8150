@@ -106,9 +106,13 @@ static int lz4_uncompress(struct squashfs_sb_info *msblk, void *strm,
 		offset = 0;
 		put_bh(bh[i]);
 	}
-
+#if defined(CONFIG_ARM64) && defined(CONFIG_KERNEL_MODE_NEON)
+	res = LZ4_arm64_decompress_safe(stream->input, stream->output,
+		length, output->length, false);
+#else
 	res = LZ4_decompress_safe(stream->input, stream->output,
 		length, output->length);
+#endif
 
 	if (res < 0)
 		return -EIO;
