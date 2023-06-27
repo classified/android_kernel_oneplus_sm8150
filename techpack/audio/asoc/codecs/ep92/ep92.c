@@ -178,7 +178,7 @@ static ssize_t debugfs_codec_write_op(struct file *filp,
 {
 	struct ep92_pdata *ep92 = (struct ep92_pdata *) filp->private_data;
 	struct snd_soc_codec *codec = ep92->codec;
-	char lbuf[32];
+	char lbuf[32] = { 0 };
 	int rc;
 	u32 param[2];
 

@@ -321,7 +321,7 @@ static ssize_t debugfs_codec_write_op(struct file *filp,
 	struct csra66x0_priv *csra66x0 =
 			(struct csra66x0_priv *) filp->private_data;
 	struct snd_soc_codec *codec = csra66x0->codec;
-	char lbuf[32];
+	char lbuf[32] = { 0 };
 	int rc;
 	u32 param[2];
 
