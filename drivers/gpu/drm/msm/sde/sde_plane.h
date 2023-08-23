@@ -171,6 +171,7 @@ struct sde_plane_state {
 
 	struct sde_hw_pipe_cdp_cfg cdp_cfg;
 	struct sde_hw_pipe_line_insertion_cfg line_insertion_cfg;
+	bool color_invert_on;
 };
 
 /**

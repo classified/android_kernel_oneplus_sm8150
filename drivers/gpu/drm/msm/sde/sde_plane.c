@@ -3963,7 +3963,7 @@ struct sde_csc_cfg *sde_plane_get_csc_cfg(struct drm_plane *plane)
 	psde = to_sde_plane(plane);
 	pstate = to_sde_plane_state(plane->state);
 
-	if (sde_plane_check_fingerprint_layer(&pstate->base))
+	if (sde_plane_check_fingerprint_layer(&pstate->base) || pstate->color_invert_on)
 		csc_ptr = NULL;
 	else if (psde->csc_pcc_ptr)
 		csc_ptr = psde->csc_pcc_ptr;
@@ -4027,10 +4027,17 @@ static inline void _sde_plane_set_csc_pcc(struct sde_plane *psde,
 					  struct drm_crtc *crtc)
 {
 	const struct drm_msm_pcc *pcc_cfg = sde_cp_crtc_get_pcc_cfg(crtc);
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 
 	if (pcc_cfg == psde->pcc_cfg)
 		return;
 
+	if (pcc_cfg->r.c != 0 || pcc_cfg->b.c != 0 || pcc_cfg->g.r != 0) {
+		pstate->color_invert_on = true;
+		return;
+	}
+
+	pstate->color_invert_on = false;
 	psde->pcc_cfg = pcc_cfg;
 
 	if (pcc_cfg) {
