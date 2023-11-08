@@ -1344,7 +1344,7 @@ static int tri_key_m1120_i2c_drv_probe(struct i2c_client *client, const struct i
 	// }
 
 	/*(11) register ops to abstrace level*/
-	oneplus_register_hall("hall_down", &m1120_downs_ops);//ÍùÆäÀï±ß×¢²áhall
+	oneplus_register_hall("hall_down", &m1120_downs_ops);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½hall
 
 	printk(KERN_INFO "  i2c addr : %d\n", client->addr);
 
